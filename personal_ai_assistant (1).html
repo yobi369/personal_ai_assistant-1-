@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal AI Knowledge Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 30px 0;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: rotate 20s linear infinite;
+        }
+
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(45deg, #fff, #e0e7ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header p {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 1.1rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            flex: 1;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            transition: left 0.5s;
+        }
+
+        .panel:hover::before {
+            left: 100%;
+        }
+
+        .panel:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.15);
+        }
+
+        .panel-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #4f46e5;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .icon {
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(45deg, #4f46e5, #7c3aed);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+        }
+
+        .data-sources {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .data-source {
+            padding: 15px;
+            background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .data-source:hover, .data-source.active {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            transform: scale(1.05);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .insight-card {
+            background: linear-gradient(135deg, #fef7e0, #fed7aa);
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 15px;
+            border-left: 4px solid #f59e0b;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .insight-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 10px 30px rgba(245, 158, 11, 0.2);
+        }
+
+        .insight-title {
+            font-weight: 600;
+            color: #92400e;
+            margin-bottom: 8px;
+        }
+
+        .insight-text {
+            color: #a16207;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .task-item {
+            background: white;
+            padding: 18px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            border-left: 4px solid #10b981;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .task-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.15);
+        }
+
+        .task-priority {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .high { background: #ef4444; }
+        .medium { background: #f59e0b; }
+        .low { background: #10b981; }
+
+        .task-content {
+            flex: 1;
+        }
+
+        .task-title {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+
+        .task-meta {
+            font-size: 0.8rem;
+            color: #6b7280;
+        }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 400px;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 12px;
+            margin-bottom: 15px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 16px;
+            border-radius: 18px;
+            max-width: 80%;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .user-message {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            margin-left: auto;
+        }
+
+        .ai-message {
+            background: white;
+            color: #374151;
+            border: 1px solid #e5e7eb;
+        }
+
+        .chat-input {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 25px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .chat-input input:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .send-btn {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(79, 70, 229, 0.3);
+        }
+
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, #ddd6fe, #c4b5fd);
+            padding: 20px;
+            border-radius: 16px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .metric-card:hover {
+            transform: scale(1.05);
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #5b21b6;
+            margin-bottom: 5px;
+        }
+
+        .metric-label {
+            color: #7c2d12;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .privacy-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(16, 185, 129, 0.9);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .data-sources {
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Personal AI Knowledge Assistant</h1>
+            <p>Privacy-first, locally-powered intelligence for your personal data</p>
+        </div>
+
+        <div class="main-grid">
+            <div class="panel">
+                <div class="panel-title">
+                    <div class="icon">📊</div>
+                    Data Integration Hub
+                </div>
+                
+                <div class="data-sources">
+                    <div class="data-source active" data-source="notes">
+                        <div style="font-size: 1.5rem; margin-bottom: 8px;">📝</div>
+                        <div>Notes</div>
+                        <div style="font-size: 0.8rem; color: #666;">2,341 items</div>
+                    </div>
+                    <div class="data-source" data-source="emails">
+                        <div style="font-size: 1.5rem; margin-bottom: 8px;">📧</div>
+                        <div>Emails</div>
+                        <div style="font-size: 0.8rem; color: #666;">15,782 items</div>
+                    </div>
+                    <div class="data-source" data-source="calendar">
+                        <div style="font-size: 1.5rem; margin-bottom: 8px;">📅</div>
+                        <div>Calendar</div>
+                        <div style="font-size: 0.8rem; color: #666;">847 events</div>
+                    </div>
+                    <div class="data-source" data-source="documents">
+                        <div style="font-size: 1.5rem; margin-bottom: 8px;">📄</div>
+                        <div>Documents</div>
+                        <div style="font-size: 0.8rem; color: #666;">456 files</div>
+                    </div>
+                    <div class="data-source" data-source="contacts">
+                        <div style="font-size: 1.5rem; margin-bottom: 8px;">👥</div>
+                        <div>Contacts</div>
+                        <div style="font-size: 0.8rem; color: #666;">1,234 people</div>
+                    </div>
+                    <div class="data-source" data-source="photos">
+                        <div style="font-size: 1.5rem; margin-bottom: 8px;">📸</div>
+                        <div>Photos</div>
+                        <div style="font-size: 0.8rem; color: #666;">8,923 images</div>
+                    </div>
+                </div>
+
+                <div class="analytics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value">94%</div>
+                        <div class="metric-label">Data Indexed</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">2.3GB</div>
+                        <div class="metric-label">Local Storage</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">0ms</div>
+                        <div class="metric-label">Cloud Latency</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">
+                    <div class="icon">🧠</div>
+                    AI Insights & Analysis
+                </div>
+                
+                <div class="insight-card">
+                    <div class="insight-title">📈 Productivity Pattern Detected</div>
+                    <div class="insight-text">You're 40% more productive on Tuesdays and Wednesdays. Consider scheduling important tasks during these peak periods.</div>
+                </div>
+
+                <div class="insight-card">
+                    <div class="insight-title">🔗 Connection Discovered</div>
+                    <div class="insight-text">Your notes about "machine learning" correlate with 15 recent emails from colleagues. Potential collaboration opportunity identified.</div>
+                </div>
+
+                <div class="insight-card">
+                    <div class="insight-title">⚠️ Deadline Alert</div>
+                    <div class="insight-text">3 project deadlines approaching next week. AI suggests prioritizing the Q4 report based on email urgency patterns.</div>
+                </div>
+
+                <div class="insight-card">
+                    <div class="insight-title">💡 Knowledge Gap</div>
+                    <div class="insight-text">You've referenced "blockchain" 12 times but have limited resources. Consider expanding your knowledge base.</div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">
+                    <div class="icon">✅</div>
+                    Smart Task Prioritization
+                </div>
+                
+                <div class="task-item">
+                    <div class="task-priority high"></div>
+                    <div class="task-content">
+                        <div class="task-title">Complete Q4 Financial Report</div>
+                        <div class="task-meta">Due: Tomorrow • High impact • 3 related emails</div>
+                    </div>
+                </div>
+
+                <div class="task-item">
+                    <div class="task-priority high"></div>
+                    <div class="task-content">
+                        <div class="task-title">Review Contract with Acme Corp</div>
+                        <div class="task-meta">Due: Friday • Legal deadline • 7 document references</div>
+                    </div>
+                </div>
+
+                <div class="task-item">
+                    <div class="task-priority medium"></div>
+                    <div class="task-content">
+                        <div class="task-title">Prepare presentation for client meeting</div>
+                        <div class="task-meta">Due: Next Monday • Meeting in calendar • 12 related notes</div>
+                    </div>
+                </div>
+
+                <div class="task-item">
+                    <div class="task-priority medium"></div>
+                    <div class="task-content">
+                        <div class="task-title">Update team on project status</div>
+                        <div class="task-meta">Due: This week • Team dependency • 5 Slack mentions</div>
+                    </div>
+                </div>
+
+                <div class="task-item">
+                    <div class="task-priority low"></div>
+                    <div class="task-content">
+                        <div class="task-title">Organize digital photo library</div>
+                        <div class="task-meta">Personal task • Low urgency • 2,341 unsorted photos</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">
+                    <div class="icon">💬</div>
+                    AI Chat Interface
+                </div>
+                
+                <div class="chat-container">
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="message ai-message">
+                            Hello! I'm your personal AI assistant. I have access to all your local data and can help you find information, prioritize tasks, or provide insights. What would you like to know?
+                        </div>
+                        <div class="message user-message">
+                            What are my most important tasks for this week?
+                        </div>
+                        <div class="message ai-message">
+                            Based on your calendar, emails, and notes, here are your top priorities: 1) Q4 Financial Report (due tomorrow - high urgency emails from CFO), 2) Acme Corp contract review (legal deadline Friday), 3) Client presentation prep (meeting Monday). I notice you have 3 hours blocked Thursday afternoon - perfect for the presentation work.
+                        </div>
+                    </div>
+                    
+                    <div class="chat-input">
+                        <input type="text" id="chatInput" placeholder="Ask me anything about your data..." />
+                        <button class="send-btn" onclick="sendMessage()">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="privacy-indicator">
+        🔒 100% Local Processing • Zero Cloud Data
+    </div>
+
+    <script>
+        // Simulated AI responses for demonstration
+        const aiResponses = [
+            "I found 15 relevant documents in your notes about that topic. Would you like me to summarize the key points?",
+            "Based on your email patterns, I suggest scheduling that meeting for Tuesday afternoon when you typically have fewer interruptions.",
+            "I've analyzed your calendar and found a 2-hour gap on Thursday that would be perfect for deep work on that project.",
+            "Your productivity data shows you work best on complex tasks between 9-11 AM. I've identified 3 important items that would benefit from this time slot.",
+            "I notice this topic connects to 8 different projects in your system. Would you like me to show the relationship map?",
+            "Based on your note-taking patterns, you might find the concept of 'second brain' methodology helpful for organizing these ideas.",
+            "I've detected some recurring themes in your recent work. Would you like me to create a knowledge cluster analysis?"
+        ];
+
+        // Data source switching
+        document.querySelectorAll('.data-source').forEach(source => {
+            source.addEventListener('click', function() {
+                document.querySelectorAll('.data-source').forEach(s => s.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Simulate data loading with animation
+                this.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    this.style.transform = 'scale(1)';
+                }, 150);
+                
+                // Update insights based on selected data source
+                updateInsights(this.dataset.source);
+            });
+        });
+
+        function updateInsights(source) {
+            const insights = {
+                notes: [
+                    { title: "📚 Knowledge Clusters", text: "Identified 5 main topic clusters in your notes with strong interconnections." },
+                    { title: "🔍 Frequent References", text: "You reference 'AI ethics' most frequently - 47 mentions across 23 notes." }
+                ],
+                emails: [
+                    { title: "📊 Communication Patterns", text: "Peak email activity: 9-11 AM and 2-4 PM. Response rate drops 60% after 6 PM." },
+                    { title: "👥 Key Contacts", text: "Top collaborators: Sarah (ML team), John (Strategy), Lisa (Legal) - 67% of your email volume." }
+                ],
+                calendar: [
+                    { title: "⏰ Meeting Efficiency", text: "Tuesday meetings are 30% shorter on average. Consider moving recurring meetings there." },
+                    { title: "🎯 Focus Time", text: "You have 3.5 hours of unscheduled time this week - optimal for deep work." }
+                ]
+            };
+
+            // Animate insight cards update (simplified for demo)
+            console.log(`Updated insights for ${source} data source`);
+        }
+
+        // Chat functionality
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const messages = document.getElementById('chatMessages');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            // Add user message
+            const userMsg = document.createElement('div');
+            userMsg.className = 'message user-message';
+            userMsg.textContent = message;
+            messages.appendChild(userMsg);
+            
+            // Clear input
+            input.value = '';
+            
+            // Simulate AI thinking delay
+            setTimeout(() => {
+                const aiMsg = document.createElement('div');
+                aiMsg.className = 'message ai-message';
+                aiMsg.textContent = aiResponses[Math.floor(Math.random() * aiResponses.length)];
+                messages.appendChild(aiMsg);
+                messages.scrollTop = messages.scrollHeight;
+            }, 1000 + Math.random() * 1000);
+            
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        // Enter key support for chat
+        document.getElementById('chatInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Simulate real-time updates
+        setInterval(() => {
+            const metrics = document.querySelectorAll('.metric-value');
+            metrics.forEach(metric => {
+                if (metric.textContent.includes('%')) {
+                    const current = parseInt(metric.textContent);
+                    if (current < 100) {
+                        metric.textContent = Math.min(100, current + Math.floor(Math.random() * 2)) + '%';
+                    }
+                }
+            });
+        }, 5000);
+
+        // Animate task items on load
+        setTimeout(() => {
+            document.querySelectorAll('.task-item, .insight-card').forEach((item, index) => {
+                item.style.opacity = '0';
+                item.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    item.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                    item.style.opacity = '1';
+                    item.style.transform = 'translateY(0)';
+                }, index * 100);
+            });
+        }, 500);
+
+        // Privacy indicator interaction
+        document.querySelector('.privacy-indicator').addEventListener('click', function() {
+            alert('🔒 Privacy First Design:\n\n• All data processing happens locally on your device\n• Zero data transmission to external servers\n• Full control over your personal information\n• Advanced encryption for local storage\n• Open-source algorithms for transparency');
+        });
+    </script>
+</body>
+</html>
