@@ -119,6 +119,31 @@ def test_chat_fails_safely_when_provider_is_not_configured():
     assert "MODEL_API_URL" in response.json()["detail"]
 
 
+def test_account_export_includes_only_the_signed_in_users_data():
+    create_account("export@example.com")
+    client.post("/api/notes", json={"title": "Export me", "content": "Personal note"}, headers=ORIGIN)
+    response = client.get("/api/account/export")
+    assert response.status_code == 200
+    assert "attachment" in response.headers["content-disposition"]
+    exported = response.json()
+    assert exported["user"]["email"] == "export@example.com"
+    assert exported["notes"][0]["title"] == "Export me"
+
+
+def test_account_deletion_requires_password_and_removes_user_data():
+    create_account("delete@example.com")
+    client.post("/api/notes", json={"title": "Delete me", "content": "Private"}, headers=ORIGIN)
+    wrong = client.request("DELETE", "/api/account", json={"password": "incorrect-password-123"}, headers=ORIGIN)
+    assert wrong.status_code == 401
+    assert client.get("/api/notes").json()["notes"]
+
+    deleted = client.request("DELETE", "/api/account", json={"password": "correct-horse-battery-staple"}, headers=ORIGIN)
+    assert deleted.status_code == 200
+    assert client.get("/api/auth/me").status_code == 401
+    login = client.post("/api/auth/login", json={"email": "delete@example.com", "password": "correct-horse-battery-staple"}, headers=ORIGIN)
+    assert login.status_code == 401
+
+
 def test_security_headers_are_present():
     response = client.get("/health")
     assert response.headers["x-content-type-options"] == "nosniff"
