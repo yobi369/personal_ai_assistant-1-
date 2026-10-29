@@ -56,5 +56,10 @@ jobs:
         run: pytest -q
       - name: Check browser JavaScript syntax
         run: node --check web/app.js
+      - name: Audit dependencies
+        run: |
+          pip install pip-audit bandit
+          pip-audit -r requirements.txt
+          bandit -ll -q -r app.py scripts
       - name: Build container image
         run: docker build --tag personal-ai-assistant:test .
