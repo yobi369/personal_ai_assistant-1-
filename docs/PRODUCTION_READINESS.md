@@ -21,10 +21,11 @@ This checklist is an engineering gate, not a claim that the listed controls alre
 - [ ] Semantic/vector search, document ingestion, and independent citation-quality verification
 - [x] Notes and conversation export plus password-confirmed account/notes/conversation deletion (AI memory beyond saved notes is not implemented)
 - [ ] User-controlled AI memory beyond the notes store
-- [x] Initial API and prototype regression tests plus CI workflow (check the current branch's latest run before release)
+- [x] API and prototype regression tests, PostgreSQL/Redis integration services, browser JavaScript syntax check, and container build in CI (check the current branch's latest run before release)
 - [ ] Broader integration, end-to-end, load, and security testing (container build and CI checks are being added)
 - [ ] CI checks and dependency/security scanning
-- [ ] Distributed rate limiting, abuse controls, provider quotas, and operational monitoring (current limiter is per-process only)
+- [x] Optional Redis-backed distributed rate limiting with fail-closed behavior when configured
+- [ ] Configure managed Redis in production, abuse controls, provider quotas, and operational monitoring
 - [x] SQLite backup/restore scripts with automated integrity tests
 - [ ] Offsite backup and production restore drill
 - [ ] Deployment smoke test and independent security review
