@@ -55,7 +55,7 @@ Set these **on the server only**:
 - `MODEL_API_KEY`: secret API key; never commit it or put it in browser JavaScript.
 - `MODEL_NAME`: provider-supported model name.
 
-The AI endpoint remains unavailable if the URL or key is missing. The application does not silently fabricate AI answers. A compatible provider may still receive the user question and selected note excerpts, so review its privacy and retention terms before enabling it.
+The AI endpoint remains unavailable if the URL or key is missing. The application does not silently fabricate AI answers. A compatible provider receives the current question, recent conversation history, and selected note excerpts, so review its privacy and retention terms before enabling it. For a local-only setup, you can use an OpenAI-compatible local model server (for example, Ollama) at a loopback URL; set `ALLOW_INSECURE_MODEL_URL=true` only for trusted local testing and never for a publicly reachable model endpoint.
 
 ## API overview
 
