@@ -43,8 +43,14 @@ APP_ORIGIN = os.getenv("APP_ORIGIN", "").rstrip("/")
 MODEL_API_URL = os.getenv("MODEL_API_URL", "").strip()
 MODEL_API_KEY = os.getenv("MODEL_API_KEY", "").strip()
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini").strip()
-if MODEL_API_URL and not MODEL_API_URL.startswith("https://") and os.getenv("ALLOW_INSECURE_MODEL_URL", "false").lower() != "true":
-    raise RuntimeError("MODEL_API_URL must use HTTPS unless ALLOW_INSECURE_MODEL_URL=true.")
+if MODEL_API_URL:
+    parsed_model_url = urlparse(MODEL_API_URL)
+    local_hosts = {"localhost", "127.0.0.1", "::1"}
+    allow_local_http = os.getenv("ALLOW_INSECURE_MODEL_URL", "false").lower() == "true"
+    if parsed_model_url.scheme != "https" and not (
+        allow_local_http and parsed_model_url.scheme == "http" and parsed_model_url.hostname in local_hosts
+    ):
+        raise RuntimeError("MODEL_API_URL must use HTTPS; HTTP is allowed only for trusted loopback testing.")
 if USE_POSTGRES:
     parsed_database_url = urlparse(DATABASE_URL.replace("postgres://", "postgresql://", 1))
     local_hosts = {"localhost", "127.0.0.1", "::1"}
@@ -587,7 +593,7 @@ def ask_model(message: str, notes: list[sqlite3.Row], history: list[dict] | None
         "Accept": "application/json",
     }, method="POST")
     try:
-        with urlopen(request, timeout=30) as result:
+        with urlopen(request, timeout=30) as result:  # nosec B310 - URL scheme/host are allowlisted at startup
             payload = json.loads(result.read(1_000_000).decode("utf-8"))
         answer = payload["choices"][0]["message"]["content"]
         if not isinstance(answer, str) or not answer.strip():
@@ -672,7 +678,7 @@ def chat(payload: ChatInput, request: FastAPIRequest, user=Depends(current_user)
             for term in terms:
                 params.extend([f"%{term}%", f"%{term}%"])
             rows = conn.execute(
-                f"SELECT id,title,content FROM notes WHERE user_id=? AND ({conditions}) ORDER BY updated_at DESC LIMIT 8",
+                f"SELECT id,title,content FROM notes WHERE user_id=? AND ({conditions}) ORDER BY updated_at DESC LIMIT 8",  # nosec B608 - fixed clauses only; user terms are bound parameters
                 params,
             ).fetchall()
         else:
