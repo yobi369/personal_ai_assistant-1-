@@ -59,7 +59,7 @@ The AI endpoint remains unavailable if the URL or key is missing. The applicatio
 - `GET /health` — service status and whether AI settings exist (never returns credentials).
 - `POST /api/auth/register` — create an account when registration is enabled.
 - `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`.
-- `GET /api/notes`, `POST /api/notes`, `PUT /api/notes/{id}`, `DELETE /api/notes/{id}`.
+- `GET /api/notes`, `GET /api/notes/{id}`, `POST /api/notes`, `PUT /api/notes/{id}`, `DELETE /api/notes/{id}`.
 - `POST /api/chat` — ask a question with excerpts from the signed-in user's matching notes.
 
 Write requests validate browser Origin when present. Set `APP_ORIGIN` to the exact public origin. API clients that do not send an Origin header are supported; if you expose this API to untrusted clients, add an explicit API-client CSRF/authentication policy and network-level abuse controls.
