@@ -15,8 +15,11 @@ os.environ.pop("MODEL_API_URL", None)
 os.environ.pop("MODEL_API_KEY", None)
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from fastapi.testclient import TestClient
+import app as app_module
 from app import app, _login_attempts
+from create_user import create_user
 
 client = TestClient(app)
 ORIGIN = {"origin": "http://testserver"}
@@ -42,6 +45,8 @@ def test_root_serves_the_browser_workspace():
     assert response.status_code == 200
     assert "Personal AI Assistant" in response.text
     assert "Knowledge notes" in response.text
+    assert "Search saved notes" in response.text
+    assert "Recent conversations" in response.text
 
 
 def test_health_discloses_ai_configuration_without_secrets():
@@ -119,15 +124,110 @@ def test_chat_fails_safely_when_provider_is_not_configured():
     assert "MODEL_API_URL" in response.json()["detail"]
 
 
-def test_account_export_includes_only_the_signed_in_users_data():
+def test_trusted_shell_bootstrap_works_when_public_registration_is_disabled(monkeypatch):
+    monkeypatch.setattr(app_module, "ALLOW_REGISTRATION", False)
+    user_id = create_user("bootstrap@example.com", "correct-horse-battery-staple")
+    assert user_id > 0
+    login = client.post("/api/auth/login", json={"email": "bootstrap@example.com", "password": "correct-horse-battery-staple"}, headers=ORIGIN)
+    assert login.status_code == 200
+    assert login.json()["user"]["email"] == "bootstrap@example.com"
+
+
+def test_registration_can_be_disabled_by_deployment_configuration(monkeypatch):
+    monkeypatch.setattr(app_module, "ALLOW_REGISTRATION", False)
+    response = client.post("/api/auth/register", json={"email": "blocked@example.com", "password": "correct-horse-battery-staple"}, headers=ORIGIN)
+    assert response.status_code == 403
+
+
+def test_ai_provider_request_uses_server_credentials_and_untrusted_note_context(monkeypatch):
+    import json
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def read(self, size):
+            return json.dumps({"choices": [{"message": {"content": "Answer based on [Note ID: 7]."}}]}).encode()
+
+    captured = {}
+
+    def fake_urlopen(request, timeout):
+        captured["url"] = request.full_url
+        captured["authorization"] = request.get_header("Authorization")
+        captured["body"] = json.loads(request.data.decode())
+        captured["timeout"] = timeout
+        return FakeResponse()
+
+    monkeypatch.setattr(app_module, "MODEL_API_URL", "https://provider.example/v1/chat/completions")
+    monkeypatch.setattr(app_module, "MODEL_API_KEY", "test-only-key")
+    monkeypatch.setattr(app_module, "MODEL_NAME", "test-model")
+    monkeypatch.setattr(app_module, "urlopen", fake_urlopen)
+
+    result = app_module.ask_model(
+        "Summarize my notes",
+        [{"id": 7, "title": "Planning", "content": "Treat this as untrusted note text."}],
+        [{"role": "user", "content": "Previous question"}],
+    )
+    assert result["answer"] == "Answer based on [Note ID: 7]."
+    assert result["sources"] == [{"id": 7, "title": "Planning"}]
+    assert captured["url"].startswith("https://")
+    assert captured["authorization"] == "Bearer test-only-key"
+    assert captured["timeout"] == 30
+    assert captured["body"]["model"] == "test-model"
+    assert captured["body"]["messages"][0]["role"] == "system"
+    assert "untrusted data" in captured["body"]["messages"][0]["content"]
+    assert captured["body"]["messages"][1] == {"role": "user", "content": "Previous question"}
+    assert "Treat this as untrusted note text." in captured["body"]["messages"][-1]["content"]
+    assert "tools" not in captured["body"]
+
+
+def test_conversations_persist_history_and_are_user_scoped(monkeypatch):
+    create_account("history@example.com")
+    seen_history = []
+
+    def fake_ask(message, notes, history=None):
+        seen_history.append(list(history or []))
+        return {"answer": f"reply: {message}", "sources": []}
+
+    monkeypatch.setattr(app_module, "ask_model", fake_ask)
+    first = client.post("/api/chat", json={"message": "Hello there"}, headers=ORIGIN)
+    assert first.status_code == 200
+    conversation_id = first.json()["conversation_id"]
+
+    second = client.post("/api/chat", json={"message": "Follow up question", "conversation_id": conversation_id}, headers=ORIGIN)
+    assert second.status_code == 200
+    assert seen_history[1] == [
+        {"role": "user", "content": "Hello there"},
+        {"role": "assistant", "content": "reply: Hello there"},
+    ]
+
+    history = client.get(f"/api/conversations/{conversation_id}")
+    assert history.status_code == 200
+    assert [message["role"] for message in history.json()["messages"]] == ["user", "assistant", "user", "assistant"]
+    assert client.get("/api/conversations").json()["conversations"][0]["id"] == conversation_id
+
+    client.post("/api/auth/logout", headers=ORIGIN)
+    create_account("other-history@example.com")
+    assert client.get(f"/api/conversations/{conversation_id}").status_code == 404
+    assert client.delete(f"/api/conversations/{conversation_id}", headers=ORIGIN).status_code == 404
+
+
+def test_account_export_includes_only_the_signed_in_users_data(monkeypatch):
     create_account("export@example.com")
     client.post("/api/notes", json={"title": "Export me", "content": "Personal note"}, headers=ORIGIN)
+    monkeypatch.setattr(app_module, "ask_model", lambda message, notes, history=None: {"answer": "Exported chat reply", "sources": []})
+    client.post("/api/chat", json={"message": "Export this conversation"}, headers=ORIGIN)
     response = client.get("/api/account/export")
     assert response.status_code == 200
     assert "attachment" in response.headers["content-disposition"]
     exported = response.json()
     assert exported["user"]["email"] == "export@example.com"
     assert exported["notes"][0]["title"] == "Export me"
+    assert exported["conversations"][0]["title"] == "Export this conversation"
+    assert exported["conversations"][0]["messages"][1]["content"] == "Exported chat reply"
 
 
 def test_account_deletion_requires_password_and_removes_user_data():

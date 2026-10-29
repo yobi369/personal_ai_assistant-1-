@@ -7,16 +7,19 @@ A personal knowledge assistant project evolving from a standalone HTML concept i
 ## Current capabilities
 
 - FastAPI backend with a health endpoint.
-- Email/password registration controlled by the server's `ALLOW_REGISTRATION` setting.
+- Email/password registration controlled by the server's `ALLOW_REGISTRATION` setting, plus a trusted-shell bootstrap script for private installations.
 - PBKDF2-SHA256 password hashing and opaque server-validated sessions stored as hashed tokens.
 - HttpOnly, SameSite=Strict session cookie; enable Secure cookies behind HTTPS.
 - SQLite persistence with foreign-key constraints and indexes.
 - Notes CRUD queries scoped to the authenticated user, including cross-account isolation checks in tests.
 - User data export and password-confirmed account deletion, including cascading deletion of notes and sessions.
 - Optional AI chat through a configurable OpenAI-compatible Chat Completions endpoint. Provider credentials remain server-side.
+- Persistent, account-scoped conversation history with recent turns supplied as context for follow-up questions.
+- Bounded keyword-based note matching; this is not yet semantic/vector search, and model-provider requests can include matching note excerpts and recent chat history.
 - Note excerpts are labelled as untrusted reference material; model answers are instructed to cite note IDs and acknowledge missing evidence.
 - Security headers, request size check, basic per-process rate limits, safe provider/database error messages.
-- Docker image runs as a non-root user.
+- Docker image runs as a non-root user and CI verifies the container build.
+- SQLite backup/restore scripts perform integrity checks, preserve a pre-restore copy, and have automated tests.
 
 ## Run locally
 
@@ -53,17 +56,19 @@ Set these **on the server only**:
 - `MODEL_API_KEY`: secret API key; never commit it or put it in browser JavaScript.
 - `MODEL_NAME`: provider-supported model name.
 
-The AI endpoint remains unavailable if the URL or key is missing. The application does not silently fabricate AI answers. A compatible provider may still receive the user question and selected note excerpts, so review its privacy and retention terms before enabling it.
+The AI endpoint remains unavailable if the URL or key is missing. The application does not silently fabricate AI answers. A compatible provider receives the current question, recent conversation history, and selected note excerpts, so review its privacy and retention terms before enabling it. For a local-only setup, you can use an OpenAI-compatible local model server (for example, Ollama) at a loopback URL; set `ALLOW_INSECURE_MODEL_URL=true` only for trusted local testing and never for a publicly reachable model endpoint.
 
 ## API overview
 
 - `GET /health` — service status and whether AI settings exist (never returns credentials).
 - `POST /api/auth/register` — create an account when registration is enabled.
 - `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`.
+- `python scripts/create_user.py` — create an initial account from a trusted shell without enabling public sign-up.
 - `GET /api/account/export` — download the signed-in user's notes and account data.
 - `DELETE /api/account` — delete the signed-in account after password confirmation.
 - `GET /api/notes`, `GET /api/notes/{id}`, `POST /api/notes`, `PUT /api/notes/{id}`, `DELETE /api/notes/{id}`.
-- `POST /api/chat` — ask a question with excerpts from the signed-in user's matching notes.
+- `GET /api/conversations`, `GET /api/conversations/{id}`, `DELETE /api/conversations/{id}` — list, read, and delete private chat history.
+- `POST /api/chat` — ask a question with recent conversation context and excerpts from matching notes.
 
 Write requests validate browser Origin when present. Set `APP_ORIGIN` to the exact public origin. API clients that do not send an Origin header are supported; if you expose this API to untrusted clients, add an explicit API-client CSRF/authentication policy and network-level abuse controls.
 
@@ -74,7 +79,7 @@ pytest -q
 python -m unittest discover -s tests -v
 ```
 
-Tests cover unauthenticated access, session logout, account isolation, note CRUD, origin checks, password policy, missing AI configuration, response security headers, data export, and account deletion.
+Tests cover unauthenticated access, session logout, account isolation, note CRUD, origin checks, password policy, missing AI configuration, response security headers, conversation history/isolation, data export, and account deletion.
 
 ## Production deployment checklist
 
@@ -90,4 +95,4 @@ Before public launch:
 9. Run dependency/security scanning, load tests, independent security review, deployment smoke tests, and backup/restore drills.
 10. Configure logging and monitoring without recording secrets, passwords, session tokens, or unnecessary note contents.
 
-See [SECURITY.md](SECURITY.md) and [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md). The new responsive interface at `web/index.html` is served by the API and supports sign-in, note CRUD, and chat. The original standalone HTML remains a separate design prototype.
+See [SECURITY.md](SECURITY.md), [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md), and [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for deployment and backup/restore procedures. The new responsive interface at `web/index.html` is served by the API and supports sign-in, note CRUD, and chat. The original standalone HTML remains a separate design prototype.
