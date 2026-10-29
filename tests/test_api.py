@@ -1,4 +1,5 @@
 import os
+import sys
 import tempfile
 from pathlib import Path
 
@@ -11,6 +12,7 @@ os.environ["COOKIE_SECURE"] = "false"
 os.environ.pop("MODEL_API_URL", None)
 os.environ.pop("MODEL_API_KEY", None)
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fastapi.testclient import TestClient
 from app import app
 
