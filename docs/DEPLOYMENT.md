@@ -30,7 +30,7 @@ docker run --rm --name personal-ai-assistant \
   personal-ai-assistant:local
 ```
 
-The named volume preserves the SQLite database across container recreation. Back it up regularly and test restoring a copy. The included CI workflow builds the image but does not publish or deploy it.
+The named volume preserves the SQLite database across container recreation. Back it up regularly and test restoring a copy. The included CI workflow builds the image but does not publish or deploy it. After deployment, run `python scripts/smoke_test.py --url https://your-real-domain --require-ai --require-postgres --require-redis` to verify health, static assets, CSP, and required services. Remove flags for components you intentionally do not configure.
 
 For SQLite, create a local backup with `python scripts/backup_db.py --source ./data/assistant.sqlite3 --backup-dir ./backups`. These scripts intentionally refuse PostgreSQL URLs; use your managed PostgreSQL provider's native backup/export and restore procedures instead. Store a second copy somewhere separate and access-controlled; a backup on the same host or volume is not disaster recovery. To restore, stop the app first, then run `python scripts/restore_db.py --source ./backups/<verified-backup>.sqlite3 --destination ./data/assistant.sqlite3 --backup-dir ./backups --confirm`. The restore script validates the source and creates a pre-restore backup of the current database when one exists.
 
