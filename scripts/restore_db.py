@@ -1,6 +1,7 @@
 """Restore a verified SQLite backup after stopping the application."""
 import argparse
 import os
+from contextlib import closing
 import sqlite3
 import tempfile
 from datetime import datetime, timezone
@@ -28,7 +29,7 @@ def restore_database(source: Path, destination: Path, backup_dir: Path) -> Path:
     os.close(fd)
     temp = Path(temp_name)
     try:
-        with sqlite3.connect(f"{source.as_uri()}?mode=ro", uri=True, timeout=30) as src, sqlite3.connect(temp, timeout=30) as dst:
+        with closing(sqlite3.connect(f"{source.as_uri()}?mode=ro", uri=True, timeout=30)) as src, closing(sqlite3.connect(temp, timeout=30)) as dst:
             src.backup(dst)
             if dst.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                 raise sqlite3.DatabaseError("Restored database failed integrity_check.")
