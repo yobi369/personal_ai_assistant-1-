@@ -43,6 +43,8 @@ def test_root_serves_the_browser_workspace():
     assert response.status_code == 200
     assert "Personal AI Assistant" in response.text
     assert "Knowledge notes" in response.text
+    assert "Search saved notes" in response.text
+    assert "Recent conversations" in response.text
 
 
 def test_health_discloses_ai_configuration_without_secrets():
