@@ -9,6 +9,9 @@ import time
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+import psycopg
+from psycopg.rows import dict_row
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -22,6 +25,8 @@ from pydantic import BaseModel, Field, field_validator
 APP_NAME = "Personal AI Assistant"
 DATA_DIR = Path(os.getenv("DATA_DIR", "./data")).resolve()
 DB_PATH = Path(os.getenv("DATABASE_PATH", str(DATA_DIR / "assistant.sqlite3"))).resolve()
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+USE_POSTGRES = DATABASE_URL.startswith(("postgres://", "postgresql://"))
 COOKIE_NAME = "assistant_session"
 SESSION_TTL_SECONDS = 7 * 24 * 60 * 60
 MAX_BODY_BYTES = 256 * 1024
@@ -43,12 +48,90 @@ _login_attempts = {}
 _rate_limit_calls = 0
 
 
+class PostgresCursor:
+    def __init__(self, cursor, returns_id=False):
+        self._cursor = cursor
+        self._returns_id = returns_id
+        self._lastrowid_loaded = False
+        self._lastrowid = None
+
+    @property
+    def lastrowid(self):
+        if self._returns_id and not self._lastrowid_loaded:
+            row = self._cursor.fetchone()
+            self._lastrowid = row["id"] if row else None
+            self._lastrowid_loaded = True
+        return self._lastrowid
+
+    @property
+    def rowcount(self):
+        return self._cursor.rowcount
+
+    def fetchone(self):
+        return self._cursor.fetchone()
+
+    def fetchall(self):
+        return self._cursor.fetchall()
+
+
+class PostgresConnection:
+    """Small DB-API adapter for the SQL subset used by this application."""
+
+    def __init__(self, connection):
+        self._connection = connection
+
+    @staticmethod
+    def adapt_sql(sql):
+        statement = sql.strip()
+        if statement.upper().startswith("PRAGMA"):
+            return None, False
+        adapted = statement.replace("?", "%s")
+        returns_id = bool(re.match(r"^INSERT\s+INTO\s+(users|notes|conversations)\b", adapted, re.I))
+        if returns_id and not re.search(r"\bRETURNING\b", adapted, re.I):
+            adapted += " RETURNING id"
+        return adapted, returns_id
+
+    def execute(self, sql, params=()):
+        adapted, returns_id = self.adapt_sql(sql)
+        if adapted is None:
+            return PostgresCursor(EmptyCursor())
+        cursor = self._connection.execute(adapted, params or ())
+        return PostgresCursor(cursor, returns_id=returns_id)
+
+    def executescript(self, script):
+        adapted = script.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "BIGSERIAL PRIMARY KEY")
+        for statement in adapted.split(";"):
+            if statement.strip():
+                self.execute(statement)
+
+    def commit(self):
+        self._connection.commit()
+
+    def rollback(self):
+        self._connection.rollback()
+
+    def close(self):
+        self._connection.close()
+
+
+class EmptyCursor:
+    rowcount = -1
+    def fetchone(self):
+        return None
+    def fetchall(self):
+        return []
+
+
 @contextmanager
 def db():
-    connection = sqlite3.connect(DB_PATH, timeout=10)
-    connection.row_factory = sqlite3.Row
-    connection.execute("PRAGMA foreign_keys = ON")
-    connection.execute("PRAGMA journal_mode = WAL")
+    if USE_POSTGRES:
+        url = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+        connection = PostgresConnection(psycopg.connect(url, row_factory=dict_row, connect_timeout=10))
+    else:
+        connection = sqlite3.connect(DB_PATH, timeout=10)
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("PRAGMA journal_mode = WAL")
     try:
         yield connection
         connection.commit()
@@ -230,6 +313,12 @@ async def security_middleware(request: FastAPIRequest, call_next):
 
 @app.exception_handler(sqlite3.Error)
 async def database_error_handler(request: FastAPIRequest, exc: sqlite3.Error):
+    # Never expose database internals or SQL statements to clients.
+    return JSONResponse(status_code=503, content={"detail": "Storage is temporarily unavailable."})
+
+
+@app.exception_handler(psycopg.Error)
+async def postgres_error_handler(request: FastAPIRequest, exc: psycopg.Error):
     # Never expose database internals or SQL statements to clients.
     return JSONResponse(status_code=503, content={"detail": "Storage is temporarily unavailable."})
 
