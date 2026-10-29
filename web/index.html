@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#10243a">
+<title>Personal AI Assistant</title>
+<style>
+:root{color-scheme:light;--ink:#152b40;--muted:#617487;--line:#dce5ed;--paper:#f4f7fa;--card:#fff;--brand:#2457d6;--brand-dark:#193fa3;--good:#13795b;--bad:#a93232}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,textarea{font:inherit}button{cursor:pointer;border:0;border-radius:10px;padding:10px 15px;font-weight:650;background:var(--brand);color:white}button:hover{background:var(--brand-dark)}button:disabled{opacity:.55;cursor:not-allowed}.secondary{background:#e9efff;color:#1d429c}.danger{background:#fff0f0;color:#9e2828}.muted{color:var(--muted)}header{background:#10243a;color:white;padding:18px max(20px,calc((100vw - 1180px)/2));display:flex;align-items:center;justify-content:space-between;gap:20px}header h1{font-size:1.15rem;margin:0}header p{margin:3px 0 0;color:#cad7e5;font-size:.9rem}.shell{max-width:1180px;margin:28px auto;padding:0 20px}.notice{padding:13px 16px;border:1px solid #f1d39c;background:#fff8e9;color:#714c0d;border-radius:12px;margin-bottom:18px}.status{min-height:24px;margin:12px 0;color:var(--muted)}.status.error{color:var(--bad)}.status.success{color:var(--good)}.grid{display:grid;grid-template-columns:minmax(280px,.85fr) minmax(0,1.4fr);gap:20px;align-items:start}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:0 5px 18px #142d4510}.card h2{margin:0 0 4px;font-size:1.1rem}.card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}.field{display:grid;gap:6px;margin:12px 0}.field label{font-weight:650;font-size:.92rem}.field input,.field textarea{width:100%;padding:11px 12px;border:1px solid #cbd7e2;border-radius:10px;background:white;color:var(--ink)}.field textarea{min-height:135px;resize:vertical}.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1}.hidden{display:none!important}.note-list{display:grid;gap:9px;margin-top:14px}.note-item{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:11px;padding:10px;background:white}.note-select{flex:1;text-align:left;background:transparent;color:var(--ink);padding:5px}.note-select:hover{background:#f0f4ff}.note-select strong{display:block}.note-select small{display:block;color:var(--muted);font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}.chat-log{height:330px;overflow:auto;background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}.bubble{max-width:92%;padding:10px 13px;border-radius:12px;white-space:pre-wrap;overflow-wrap:anywhere}.bubble.assistant{background:white;border:1px solid var(--line);align-self:flex-start}.bubble.user{background:#e8efff;align-self:flex-end}.chat-form{display:flex;gap:9px;margin-top:12px}.chat-form input{flex:1;min-width:0;border:1px solid #cbd7e2;border-radius:10px;padding:11px}.source-list{font-size:.84rem;color:var(--muted);margin-top:8px}.auth{max-width:460px;margin:35px auto}.foot{margin:24px 0;text-align:center;color:var(--muted);font-size:.85rem} @media(max-width:760px){.grid{grid-template-columns:1fr}.shell{padding:0 12px;margin:16px auto}header{padding:16px 14px}.chat-log{height:280px}.card{padding:16px}}
+</style>
+</head>
+<body>
+<header><div><h1>Personal AI Assistant</h1><p>Your notes, your knowledge, your control.</p></div><div id="account" class="hidden"><span id="email" style="margin-right:12px"></span><button id="logout" class="secondary">Sign out</button></div></header>
+<main class="shell">
+<div class="notice"><strong>Early access:</strong> this application is under active development. Use test data only. If AI is enabled, your question and selected note excerpts are sent to the server-configured model provider.</div>
+<div id="status" class="status" role="status" aria-live="polite"></div>
+<section id="auth" class="card auth">
+<h2 id="auth-title">Welcome back</h2><p class="muted">Sign in to access your private knowledge space.</p>
+<form id="auth-form">
+<div class="field"><label for="auth-email">Email</label><input id="auth-email" type="email" autocomplete="email" required maxlength="254"></div>
+<div class="field"><label for="auth-password">Password</label><input id="auth-password" type="password" autocomplete="current-password" minlength="12" maxlength="256" required><small class="muted">Use at least 12 characters.</small></div>
+<div class="row"><button id="auth-submit" type="submit">Sign in</button><button id="toggle-auth" class="secondary" type="button">Create account</button></div>
+</form><p id="register-hint" class="muted">Account creation depends on the server's registration setting.</p>
+</section>
+<section id="workspace" class="grid hidden">
+<div class="card">
+<div class="card-head"><div><h2>Knowledge notes</h2><p class="muted" style="margin:3px 0 0">Save and search your own notes.</p></div><button id="new-note" class="secondary" type="button">New note</button></div>
+<form id="note-form">
+<input id="note-id" type="hidden">
+<div class="field"><label for="note-title">Title</label><input id="note-title" maxlength="160" required placeholder="e.g. Project ideas"></div>
+<div class="field"><label for="note-content">Content</label><textarea id="note-content" maxlength="20000" placeholder="Write something you want to remember…"></textarea></div>
+<div class="row"><button type="submit">Save note</button><button id="delete-note" type="button" class="danger hidden">Delete</button></div>
+</form>
+<div id="notes" class="note-list" aria-label="Saved notes"></div>
+</div>
+<div class="card">
+<div class="card-head"><div><h2>Ask your assistant</h2><p class="muted" style="margin:3px 0 0">Answers can use matching notes when AI is configured.</p></div></div>
+<div id="chat-log" class="chat-log" aria-live="polite"><div class="bubble assistant">Hi! I can help with questions about your saved notes when a model provider is configured. I will not invent an answer if AI is unavailable.</div></div>
+<form id="chat-form" class="chat-form"><input id="chat-message" maxlength="8000" required placeholder="Ask a question…" autocomplete="off"><button type="submit">Send</button></form>
+<div id="sources" class="source-list"></div>
+</div>
+</section>
+<p class="foot">Private by design is a goal—not a substitute for independent security review. Keep backups of important notes.</p>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let registering=false, notes=[];
+function status(message,type=""){ $("status").textContent=message; $("status").className="status "+type; }
+async function api(path,options={}){const response=await fetch(path,{...options,credentials:"same-origin",headers:{"Content-Type":"application/json",...(options.headers||{})}});if(response.status===204)return null;let data={};try{data=await response.json()}catch{}if(!response.ok)throw new Error(data.detail||"Request failed. Please try again.");return data;}
+function showWorkspace(user){$("auth").classList.add("hidden");$("workspace").classList.remove("hidden");$("account").classList.remove("hidden");$("email").textContent=user.email;status("Signed in. Your notes are scoped to this account.","success");loadNotes();}
+function showAuth(){ $("auth").classList.remove("hidden");$("workspace").classList.add("hidden");$("account").classList.add("hidden"); }
+async function refreshSession(){try{const data=await api("/api/auth/me");showWorkspace(data.user);}catch{showAuth();}}
+function clearEditor(){ $("note-id").value="";$("note-title").value="";$("note-content").value="";$("delete-note").classList.add("hidden");}
+async function loadNotes(){try{const data=await api("/api/notes");notes=data.notes;renderNotes();}catch(e){status(e.message,"error");}}
+function renderNotes(){const list=$("notes");list.replaceChildren();if(!notes.length){const p=document.createElement("p");p.className="muted";p.textContent="No notes yet. Create your first note above.";list.append(p);return;}for(const note of notes){const item=document.createElement("div");item.className="note-item";const select=document.createElement("button");select.type="button";select.className="note-select";const title=document.createElement("strong");title.textContent=note.title;const preview=document.createElement("small");preview.textContent=note.content.slice(0,90)||"Empty note";select.append(title,preview);select.addEventListener("click",()=>{ $("note-id").value=note.id;$("note-title").value=note.title;$("note-content").value=note.content;$("delete-note").classList.remove("hidden");});item.append(select);list.append(item);}}
+$("toggle-auth").addEventListener("click",()=>{registering=!registering;$("auth-title").textContent=registering?"Create your account":"Welcome back";$("auth-submit").textContent=registering?"Create account":"Sign in";$("toggle-auth").textContent=registering?"I already have an account":"Create account";$("auth-password").autocomplete=registering?"new-password":"current-password";});
+$("auth-form").addEventListener("submit",async e=>{e.preventDefault();const button=$("auth-submit");button.disabled=true;status("Signing in…");try{const data=await api(registering?"/api/auth/register":"/api/auth/login",{method:"POST",body:JSON.stringify({email:$("auth-email").value,password:$("auth-password").value})});$("auth-password").value="";showWorkspace(data.user);}catch(err){status(err.message,"error");}finally{button.disabled=false;}});
+$("logout").addEventListener("click",async()=>{try{await api("/api/auth/logout",{method:"POST"});}catch{}notes=[];clearEditor();showAuth();status("You have signed out.");});
+$("new-note").addEventListener("click",clearEditor);
+$("note-form").addEventListener("submit",async e=>{e.preventDefault();const id=$("note-id").value;try{const data=await api(id?"/api/notes/"+id:"/api/notes",{method:id?"PUT":"POST",body:JSON.stringify({title:$("note-title").value,content:$("note-content").value})});if(id){notes=notes.map(n=>n.id===data.note.id?data.note:n);}else{notes.unshift(data.note);}renderNotes();clearEditor();status("Note saved.","success");}catch(err){status(err.message,"error");}});
+$("delete-note").addEventListener("click",async()=>{const id=$("note-id").value;if(!id)return;if(!confirm("Delete this note permanently?"))return;try{await api("/api/notes/"+id,{method:"DELETE"});notes=notes.filter(n=>String(n.id)!==String(id));renderNotes();clearEditor();status("Note deleted.","success");}catch(err){status(err.message,"error");}});
+function bubble(text,kind){const el=document.createElement("div");el.className="bubble "+kind;el.textContent=text;$("chat-log").append(el);$("chat-log").scrollTop=$("chat-log").scrollHeight;}
+$("chat-form").addEventListener("submit",async e=>{e.preventDefault();const input=$("chat-message"),message=input.value.trim();if(!message)return;input.value="";bubble(message,"user");const button=$("chat-form").querySelector("button");button.disabled=true;$("sources").textContent="";try{const data=await api("/api/chat",{method:"POST",body:JSON.stringify({message})});bubble(data.answer,"assistant");if(data.sources&&data.sources.length)$("sources").textContent="Reference notes: "+data.sources.map(s=>s.title+" (note "+s.id+")").join(", ");}catch(err){bubble(err.message,"assistant");}finally{button.disabled=false;input.focus();}});
+refreshSession();
+</script>
+</body></html>
