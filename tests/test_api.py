@@ -20,6 +20,7 @@ from fastapi.testclient import TestClient
 import app as app_module
 from app import app, _login_attempts, PostgresConnection
 from create_user import create_user
+from reset_password import reset_password
 
 client = TestClient(app)
 ORIGIN = {"origin": "http://testserver"}
@@ -182,6 +183,17 @@ def test_remote_postgres_requires_explicit_tls_mode():
     )
     assert result.returncode != 0
     assert "sslmode=require or stronger" in result.stderr
+
+
+def test_trusted_shell_password_reset_revokes_existing_sessions():
+    create_account("recovery@example.com")
+    assert client.get("/api/auth/me").status_code == 200
+    reset_password("recovery@example.com", "new-correct-horse-battery")
+    assert client.get("/api/auth/me").status_code == 401
+    old_login = client.post("/api/auth/login", json={"email": "recovery@example.com", "password": "correct-horse-battery-staple"}, headers=ORIGIN)
+    assert old_login.status_code == 401
+    new_login = client.post("/api/auth/login", json={"email": "recovery@example.com", "password": "new-correct-horse-battery"}, headers=ORIGIN)
+    assert new_login.status_code == 200
 
 
 def test_registration_can_be_disabled_by_deployment_configuration(monkeypatch):
