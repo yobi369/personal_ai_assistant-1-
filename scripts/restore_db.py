@@ -34,6 +34,9 @@ def restore_database(source: Path, destination: Path, backup_dir: Path) -> Path:
             if dst.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                 raise sqlite3.DatabaseError("Restored database failed integrity_check.")
         os.chmod(temp, 0o600)
+        # The service must be stopped. Remove stale WAL sidecars so they cannot be replayed against the restored file.
+        Path(str(destination) + "-wal").unlink(missing_ok=True)
+        Path(str(destination) + "-shm").unlink(missing_ok=True)
         os.replace(temp, destination)
         return destination
     finally:
