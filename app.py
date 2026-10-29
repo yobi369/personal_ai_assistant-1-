@@ -46,13 +46,13 @@ MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini").strip()
 if MODEL_API_URL:
     parsed_model_url = urlparse(MODEL_API_URL)
     local_hosts = {"localhost", "127.0.0.1", "::1"}
-    if not parsed_model_url.hostname:
-        raise RuntimeError("MODEL_API_URL must include a valid hostname.")
     allow_local_http = os.getenv("ALLOW_INSECURE_MODEL_URL", "false").lower() == "true"
     if parsed_model_url.scheme != "https" and not (
         allow_local_http and parsed_model_url.scheme == "http" and parsed_model_url.hostname in local_hosts
     ):
         raise RuntimeError("MODEL_API_URL must use HTTPS; HTTP is allowed only for trusted loopback testing.")
+    if not parsed_model_url.hostname:
+        raise RuntimeError("MODEL_API_URL must include a valid hostname.")
 if USE_POSTGRES:
     parsed_database_url = urlparse(DATABASE_URL.replace("postgres://", "postgresql://", 1))
     local_hosts = {"localhost", "127.0.0.1", "::1"}
