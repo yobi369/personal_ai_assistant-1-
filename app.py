@@ -408,6 +408,7 @@ def register(payload: Credentials, request: FastAPIRequest, response: Response):
         user_id = cursor.lastrowid
     token = secrets.token_urlsafe(32)
     with db() as conn:
+        conn.execute("DELETE FROM sessions WHERE expires_at<=?", (int(time.time()),))
         conn.execute("INSERT INTO sessions(token_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)",
                      (token_digest(token), user_id, int(time.time()) + SESSION_TTL_SECONDS, utc_now()))
     response.set_cookie(COOKIE_NAME, token, httponly=True, secure=COOKIE_SECURE, samesite="strict",
