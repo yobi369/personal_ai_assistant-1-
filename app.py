@@ -370,7 +370,7 @@ async def security_middleware(request: FastAPIRequest, call_next):
                 "request_failed request_id=%s method=%s path=%s exception_type=%s",
                 request_id, request.method, request.url.path, type(exc).__name__,
             )
-            raise
+            response = JSONResponse(status_code=500, content={"detail": "An unexpected error occurred."})
     response.headers["X-Request-ID"] = request_id
     response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
     response.headers["X-Content-Type-Options"] = "nosniff"
