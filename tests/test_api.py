@@ -16,6 +16,7 @@ os.environ.pop("MODEL_API_KEY", None)
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fastapi.testclient import TestClient
+import app as app_module
 from app import app, _login_attempts
 
 client = TestClient(app)
@@ -117,6 +118,37 @@ def test_chat_fails_safely_when_provider_is_not_configured():
     response = client.post("/api/chat", json={"message": "What is in my notes?"}, headers=ORIGIN)
     assert response.status_code == 503
     assert "MODEL_API_URL" in response.json()["detail"]
+
+
+def test_conversations_persist_history_and_are_user_scoped(monkeypatch):
+    create_account("history@example.com")
+    seen_history = []
+
+    def fake_ask(message, notes, history=None):
+        seen_history.append(list(history or []))
+        return {"answer": f"reply: {message}", "sources": []}
+
+    monkeypatch.setattr(app_module, "ask_model", fake_ask)
+    first = client.post("/api/chat", json={"message": "Hello there"}, headers=ORIGIN)
+    assert first.status_code == 200
+    conversation_id = first.json()["conversation_id"]
+
+    second = client.post("/api/chat", json={"message": "Follow up question", "conversation_id": conversation_id}, headers=ORIGIN)
+    assert second.status_code == 200
+    assert seen_history[1] == [
+        {"role": "user", "content": "Hello there"},
+        {"role": "assistant", "content": "reply: Hello there"},
+    ]
+
+    history = client.get(f"/api/conversations/{conversation_id}")
+    assert history.status_code == 200
+    assert [message["role"] for message in history.json()["messages"]] == ["user", "assistant", "user", "assistant"]
+    assert client.get("/api/conversations").json()["conversations"][0]["id"] == conversation_id
+
+    client.post("/api/auth/logout", headers=ORIGIN)
+    create_account("other-history@example.com")
+    assert client.get(f"/api/conversations/{conversation_id}").status_code == 404
+    assert client.delete(f"/api/conversations/{conversation_id}", headers=ORIGIN).status_code == 404
 
 
 def test_account_export_includes_only_the_signed_in_users_data():
