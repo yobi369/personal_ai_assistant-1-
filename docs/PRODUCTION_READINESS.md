@@ -23,8 +23,8 @@ This checklist is an engineering gate, not a claim that the listed controls alre
 - [x] Notes and conversation export plus password-confirmed account/notes/conversation deletion (AI memory beyond saved notes is not implemented)
 - [ ] User-controlled AI memory beyond the notes store
 - [x] API and prototype regression tests, PostgreSQL/Redis integration services, browser JavaScript syntax check, and container build in CI (check the current branch's latest run before release)
-- [ ] Broader integration, end-to-end, load, and security testing (container build and CI checks are being added)
-- [ ] CI checks and dependency/security scanning
+- [ ] Broader browser end-to-end, load, and independent security testing
+- [ ] Dependency vulnerability scanning and static security analysis
 - [x] Optional Redis-backed distributed rate limiting with fail-closed behavior when configured
 - [ ] Configure managed Redis in production, abuse controls, provider quotas, and operational monitoring
 - [x] SQLite backup/restore scripts with automated integrity tests
