@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Personal AI Knowledge Assistant</title>
+    <title>Personal AI Knowledge Assistant — Prototype</title>
     <style>
         * {
             margin: 0;
@@ -378,10 +378,10 @@
     <div class="container">
         <div class="header">
             <h1>Personal AI Knowledge Assistant</h1>
-            <p>Privacy-first, locally-powered intelligence for your personal data</p>
+            <p>Personal knowledge workspace concept · Prototype demo</p>
         </div>
 
-        <div class="main-grid">
+        <div role="status" style="margin:0 0 20px;padding:14px 18px;border-radius:12px;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;line-height:1.5"><strong>Prototype mode:</strong> all counts, tasks, insights, and chat replies on this page are illustrative demo content. No real documents are connected and no AI model is running. Do not enter sensitive information.</div>\n        <div class="main-grid">
             <div class="panel">
                 <div class="panel-title">
                     <div class="icon">📊</div>
@@ -520,7 +520,7 @@
                 <div class="chat-container">
                     <div class="chat-messages" id="chatMessages">
                         <div class="message ai-message">
-                            Hello! I'm your personal AI assistant. I have access to all your local data and can help you find information, prioritize tasks, or provide insights. What would you like to know?
+                            Welcome! This is a UI prototype. It does not have access to your files or personal data yet. Try the demo chat to preview the interaction design; responses are canned examples, not AI-generated answers.
                         </div>
                         <div class="message user-message">
                             What are my most important tasks for this week?
@@ -540,17 +540,17 @@
     </div>
 
     <div class="privacy-indicator">
-        🔒 100% Local Processing • Zero Cloud Data
+        ⚠️ Prototype • No real data connected
     </div>
 
     <script>
         // Simulated AI responses for demonstration
         const aiResponses = [
-            "I found 15 relevant documents in your notes about that topic. Would you like me to summarize the key points?",
-            "Based on your email patterns, I suggest scheduling that meeting for Tuesday afternoon when you typically have fewer interruptions.",
-            "I've analyzed your calendar and found a 2-hour gap on Thursday that would be perfect for deep work on that project.",
-            "Your productivity data shows you work best on complex tasks between 9-11 AM. I've identified 3 important items that would benefit from this time slot.",
-            "I notice this topic connects to 8 different projects in your system. Would you like me to show the relationship map?",
+            "Demo response only: document search is not connected yet.",
+            "Demo response only: email and calendar integrations are not connected.",
+            "Demo response only: calendar analysis is not connected in this prototype.",
+            "Demo response only: when a real assistant is connected, it could help organize priorities using data you explicitly choose to share.",
+            "Demo response only: knowledge graph analysis is not implemented yet.",
             "Based on your note-taking patterns, you might find the concept of 'second brain' methodology helpful for organizing these ideas.",
             "I've detected some recurring themes in your recent work. Would you like me to create a knowledge cluster analysis?"
         ];
@@ -628,20 +628,7 @@
             }
         });
 
-        // Simulate real-time updates
-        setInterval(() => {
-            const metrics = document.querySelectorAll('.metric-value');
-            metrics.forEach(metric => {
-                if (metric.textContent.includes('%')) {
-                    const current = parseInt(metric.textContent);
-                    if (current < 100) {
-                        metric.textContent = Math.min(100, current + Math.floor(Math.random() * 2)) + '%';
-                    }
-                }
-            });
-        }, 5000);
-
-        // Animate task items on load
+        // Metrics remain static illustrative sample values in prototype mode.\n\n        // Animate task items on load
         setTimeout(() => {
             document.querySelectorAll('.task-item, .insight-card').forEach((item, index) => {
                 item.style.opacity = '0';
@@ -656,7 +643,7 @@
 
         // Privacy indicator interaction
         document.querySelector('.privacy-indicator').addEventListener('click', function() {
-            alert('🔒 Privacy First Design:\n\n• All data processing happens locally on your device\n• Zero data transmission to external servers\n• Full control over your personal information\n• Advanced encryption for local storage\n• Open-source algorithms for transparency');
+            alert('🔒 Privacy First Design:\n\n• This is a prototype; processing behavior has not been verified\n• No real AI provider or personal-data integration is connected\n• Do not enter sensitive personal information\n• Secure storage and encryption are not implemented or verified\n• Production security review is still required');
         });
     </script>
 </body>
