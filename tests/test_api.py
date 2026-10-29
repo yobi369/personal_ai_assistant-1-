@@ -3,6 +3,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import pytest
+
 _TEST_DATA = tempfile.mkdtemp(prefix="personal-ai-assistant-tests-")
 os.environ["DATA_DIR"] = _TEST_DATA
 os.environ["DATABASE_PATH"] = str(Path(_TEST_DATA) / "test.sqlite3")
@@ -18,6 +20,15 @@ from app import app, _login_attempts
 
 client = TestClient(app)
 ORIGIN = {"origin": "http://testserver"}
+
+
+@pytest.fixture(autouse=True)
+def reset_test_state():
+    client.cookies.clear()
+    _login_attempts.clear()
+    yield
+    client.cookies.clear()
+    _login_attempts.clear()
 
 
 def create_account(email):
