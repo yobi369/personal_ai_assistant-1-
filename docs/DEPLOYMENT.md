@@ -32,14 +32,14 @@ docker run --rm --name personal-ai-assistant \
 
 The named volume preserves the SQLite database across container recreation. Back it up regularly and test restoring a copy. The included CI workflow builds the image but does not publish or deploy it.
 
-Create a local backup with `python scripts/backup_db.py --source ./data/assistant.sqlite3 --backup-dir ./backups`. Store a second copy somewhere separate and access-controlled; a backup on the same host or volume is not disaster recovery. To restore, stop the app first, then run `python scripts/restore_db.py --source ./backups/<verified-backup>.sqlite3 --destination ./data/assistant.sqlite3 --backup-dir ./backups --confirm`. The restore script validates the source and creates a pre-restore backup of the current database when one exists.
+For SQLite, create a local backup with `python scripts/backup_db.py --source ./data/assistant.sqlite3 --backup-dir ./backups`. These scripts intentionally refuse PostgreSQL URLs; use your managed PostgreSQL provider's native backup/export and restore procedures instead. Store a second copy somewhere separate and access-controlled; a backup on the same host or volume is not disaster recovery. To restore, stop the app first, then run `python scripts/restore_db.py --source ./backups/<verified-backup>.sqlite3 --destination ./data/assistant.sqlite3 --backup-dir ./backups --confirm`. The restore script validates the source and creates a pre-restore backup of the current database when one exists.
 
 ## Before any public deployment
 
 - Terminate HTTPS at a correctly configured reverse proxy and set `COOKIE_SECURE=true` and `APP_ORIGIN=https://your-real-domain`.
 - Keep the service behind a trusted proxy/firewall; configure proxy trust explicitly before using forwarded headers.
 - For a private installation, create the first account from a trusted shell with `python scripts/create_user.py`, then set `ALLOW_REGISTRATION=false` and restart the service. The script prompts for a password without echoing it. The product does not yet provide email invitations or self-service account recovery.
-- Use a durable, private disk with restricted access and verified backups. The current database layer is SQLite; ephemeral container filesystems will lose user data on redeploy. A managed PostgreSQL adapter/migration is not implemented yet.
+- Use a durable, private disk with restricted access and verified backups. Set `DATABASE_URL` to a managed PostgreSQL connection string with TLS required (for example, include `sslmode=require`) to select the optional PostgreSQL adapter. The adapter creates the current schema on startup, but it has not yet been verified against your provider and does not migrate existing SQLite data. Test it against a disposable database and validate backups before production. If using SQLite instead, use durable private storage; ephemeral container filesystems will lose user data on redeploy.
 - Configure the AI provider's privacy/retention settings, usage quotas, request limits, and spending alerts before enabling real user traffic.
 - Add password reset/email verification, session revocation UI, persistent distributed rate limiting, monitoring, incident response, and dependency vulnerability scanning.
 - Run a production-like smoke test, backup/restore drill, load test, and independent security review.
