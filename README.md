@@ -77,6 +77,7 @@ Write requests validate browser Origin when present. Set `APP_ORIGIN` to the exa
 ## Tests
 
 ```bash
+pip install -r requirements-dev.txt
 pytest -q
 python -m unittest discover -s tests -v
 ```
