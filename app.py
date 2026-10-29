@@ -107,6 +107,9 @@ class PostgresConnection:
 
     def executescript(self, script):
         adapted = script.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "BIGSERIAL PRIMARY KEY")
+        adapted = adapted.replace("user_id INTEGER NOT NULL REFERENCES", "user_id BIGINT NOT NULL REFERENCES")
+        adapted = adapted.replace("conversation_id INTEGER NOT NULL REFERENCES", "conversation_id BIGINT NOT NULL REFERENCES")
+        adapted = adapted.replace("expires_at INTEGER NOT NULL", "expires_at BIGINT NOT NULL")
         for statement in adapted.split(";"):
             if statement.strip():
                 self.execute(statement)
