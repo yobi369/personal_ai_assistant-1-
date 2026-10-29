@@ -79,7 +79,7 @@ pytest -q
 python -m unittest discover -s tests -v
 ```
 
-Tests cover unauthenticated access, session logout, account isolation, note CRUD, origin checks, password policy, missing AI configuration, response security headers, conversation history/isolation, data export, and account deletion.
+Tests cover unauthenticated access, session logout, account isolation, note CRUD, origin checks, password policy, missing AI configuration, response security headers, conversation history/isolation, data export, account deletion, PostgreSQL SQL adaptation, and SQLite backup/restore. CI runs the API suite against a disposable PostgreSQL service and builds the container image.
 
 ## Production deployment checklist
 
