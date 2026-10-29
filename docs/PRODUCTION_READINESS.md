@@ -24,7 +24,8 @@ This checklist is an engineering gate, not a claim that the listed controls alre
 - [ ] Broader integration, end-to-end, load, and security testing (container build and CI checks are being added)
 - [ ] CI checks and dependency/security scanning
 - [ ] Distributed rate limiting, abuse controls, provider quotas, and operational monitoring (current limiter is per-process only)
-- [ ] Backup and restore test
+- [x] SQLite backup/restore scripts with automated integrity tests
+- [ ] Offsite backup and production restore drill
 - [ ] Deployment smoke test and independent security review
 
 ## Release gates
