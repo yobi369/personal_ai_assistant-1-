@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fastapi.testclient import TestClient
 import app as app_module
 from app import app, _login_attempts
+from create_user import create_user
 
 client = TestClient(app)
 ORIGIN = {"origin": "http://testserver"}
@@ -120,6 +121,15 @@ def test_chat_fails_safely_when_provider_is_not_configured():
     response = client.post("/api/chat", json={"message": "What is in my notes?"}, headers=ORIGIN)
     assert response.status_code == 503
     assert "MODEL_API_URL" in response.json()["detail"]
+
+
+def test_trusted_shell_bootstrap_works_when_public_registration_is_disabled(monkeypatch):
+    monkeypatch.setattr(app_module, "ALLOW_REGISTRATION", False)
+    user_id = create_user("bootstrap@example.com", "correct-horse-battery-staple")
+    assert user_id > 0
+    login = client.post("/api/auth/login", json={"email": "bootstrap@example.com", "password": "correct-horse-battery-staple"}, headers=ORIGIN)
+    assert login.status_code == 200
+    assert login.json()["user"]["email"] == "bootstrap@example.com"
 
 
 def test_registration_can_be_disabled_by_deployment_configuration(monkeypatch):
