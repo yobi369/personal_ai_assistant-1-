@@ -13,7 +13,8 @@ This checklist is an engineering gate, not a claim that the listed controls alre
 - [x] Initial FastAPI backend and server-side model credential configuration
 - [ ] Production secret manager and verified deployment configuration
 - [x] Initial password authentication, hashed server-side sessions, and user-scoped note queries
-- [ ] Email verification, password reset, session management UI, independent auth review
+- [x] Trusted-shell account bootstrap and password reset with session revocation
+- [ ] Email verification, self-service password reset, session management UI, independent auth review
 - [x] SQLite persistence for notes and conversations, with user-scoped reads/writes and isolation tests
 - [x] Initial optional PostgreSQL adapter and schema bootstrap
 - [ ] Managed-provider smoke test with TLS settings, SQLite-to-PostgreSQL migration plan, durable backup/restore drill, and external isolation review
