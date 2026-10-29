@@ -210,6 +210,17 @@ def test_rate_limiter_rejects_excessive_registration_attempts():
     assert response.status_code == 429
 
 
+def test_rate_limiter_fails_closed_if_redis_is_unavailable(monkeypatch):
+    class BrokenRedis:
+        def eval(self, *args, **kwargs):
+            raise app_module.redis.RedisError("test outage")
+
+    monkeypatch.setattr(app_module, "redis_client", BrokenRedis())
+    response = client.post("/api/auth/register", json={"email": "redis-outage@example.com", "password": "correct-horse-battery-staple"}, headers=ORIGIN)
+    assert response.status_code == 503
+    assert "Rate-limit service" in response.json()["detail"]
+
+
 def test_registration_can_be_disabled_by_deployment_configuration(monkeypatch):
     monkeypatch.setattr(app_module, "ALLOW_REGISTRATION", False)
     response = client.post("/api/auth/register", json={"email": "blocked@example.com", "password": "correct-horse-battery-staple"}, headers=ORIGIN)
