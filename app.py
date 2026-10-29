@@ -570,7 +570,10 @@ def ask_model(message: str, notes: list[sqlite3.Row], history: list[dict] | None
     user_prompt = f"Reference notes (may be empty):\n{note_text or '[No saved notes matched or were supplied.]'}\n\nUser question:\n{message}"
     model_messages = [{"role": "system", "content": system_prompt}]
     if history:
-        model_messages.extend(history[-12:])
+        model_messages.extend(
+            {"role": item["role"], "content": item["content"][:2000]}
+            for item in history[-8:]
+        )
     model_messages.append({"role": "user", "content": user_prompt})
     body = json.dumps({
         "model": MODEL_NAME,
