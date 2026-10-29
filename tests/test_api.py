@@ -62,6 +62,8 @@ def test_health_discloses_ai_configuration_without_secrets():
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
     assert response.json()["ai_configured"] is False
+    assert response.json()["database"] in {"sqlite", "postgresql"}
+    assert response.json()["rate_limit_store"] in {"redis", "process-local"}
     assert "secret" not in response.text.lower()
 
 
@@ -228,6 +230,16 @@ def test_rate_limiter_rejects_excessive_registration_attempts():
         app_module._login_attempts["testclient:register"] = [app_module.time.time()] * 5
     response = client.post("/api/auth/register", json={"email": "rate-limit@example.com", "password": "correct-horse-battery-staple"}, headers=ORIGIN)
     assert response.status_code == 429
+
+
+def test_health_fails_if_configured_redis_is_unavailable(monkeypatch):
+    class BrokenRedis:
+        def ping(self):
+            raise app_module.redis.RedisError("test outage")
+
+    monkeypatch.setattr(app_module, "redis_client", BrokenRedis())
+    response = client.get("/health")
+    assert response.status_code == 503
 
 
 def test_rate_limiter_fails_closed_if_redis_is_unavailable(monkeypatch):
