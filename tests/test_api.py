@@ -202,6 +202,29 @@ def test_trusted_shell_password_reset_revokes_existing_sessions():
     assert new_login.status_code == 200
 
 
+def test_model_url_rejects_non_http_schemes_even_when_local_http_is_enabled():
+    import subprocess
+
+    environment = os.environ.copy()
+    environment["DATABASE_URL"] = "postgresql://assistant:test-password@localhost:5432/assistant_test?sslmode=disable"
+    environment["REDIS_URL"] = "redis://localhost:6379/0"
+    environment["MODEL_API_URL"] = "file:///etc/passwd"
+    environment["MODEL_API_KEY"] = "test-key"
+    environment["ALLOW_INSECURE_MODEL_URL"] = "true"
+    environment["DATA_DIR"] = tempfile.mkdtemp(prefix="model-url-guard-")
+    environment["DATABASE_PATH"] = str(Path(environment["DATA_DIR"]) / "assistant.sqlite3")
+    result = subprocess.run(
+        [sys.executable, "-c", "import app"],
+        cwd=Path(__file__).resolve().parents[1],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode != 0
+    assert "HTTP is allowed only for trusted loopback testing" in result.stderr
+
+
 def test_remote_redis_requires_tls():
     import subprocess
 
