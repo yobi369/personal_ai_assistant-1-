@@ -14,14 +14,14 @@ This checklist is an engineering gate, not a claim that the listed controls alre
 - [ ] Production secret manager and verified deployment configuration
 - [x] Initial password authentication, hashed server-side sessions, and user-scoped note queries
 - [ ] Email verification, password reset, session management UI, independent auth review
-- [x] SQLite persistence and user-scoped notes with initial isolation tests
+- [x] SQLite persistence for notes and conversations, with user-scoped reads/writes and isolation tests
 - [ ] Managed/durable production database, backup/restore drill, and external isolation review
 - [x] Keyword-based retrieval of matching notes and source-note identifiers in chat responses
 - [ ] Semantic/vector search, document ingestion, and independent citation-quality verification
 - [x] Notes and conversation export plus password-confirmed account/notes/conversation deletion (AI memory beyond saved notes is not implemented)
 - [ ] User-controlled AI memory beyond the notes store
 - [x] Initial API and prototype regression tests plus CI workflow (check the current branch's latest run before release)
-- [ ] Broader integration, end-to-end, load, and security testing
+- [ ] Broader integration, end-to-end, load, and security testing (container build and CI checks are being added)
 - [ ] CI checks and dependency/security scanning
 - [ ] Distributed rate limiting, abuse controls, provider quotas, and operational monitoring (current limiter is per-process only)
 - [ ] Backup and restore test
