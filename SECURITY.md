@@ -21,6 +21,7 @@ Do not access, alter, or retain data belonging to other people while investigati
 - Keep model-provider keys and other secrets on the server, never in browser code or committed files.
 - Enforce authentication, authorization, and per-user data isolation server-side.
 - Validate inputs and outputs; render untrusted text safely.
+- Keep browser assets external and use a restrictive Content Security Policy to reduce inline-script injection risk.
 - Treat user prompts, uploaded documents, retrieved passages, and tool results as untrusted data.
 - Apply least privilege to tools and require explicit approval for consequential actions.
 - Use request size limits, rate limiting, timeouts, and cost controls.
