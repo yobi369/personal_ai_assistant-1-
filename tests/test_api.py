@@ -151,15 +151,19 @@ def test_conversations_persist_history_and_are_user_scoped(monkeypatch):
     assert client.delete(f"/api/conversations/{conversation_id}", headers=ORIGIN).status_code == 404
 
 
-def test_account_export_includes_only_the_signed_in_users_data():
+def test_account_export_includes_only_the_signed_in_users_data(monkeypatch):
     create_account("export@example.com")
     client.post("/api/notes", json={"title": "Export me", "content": "Personal note"}, headers=ORIGIN)
+    monkeypatch.setattr(app_module, "ask_model", lambda message, notes, history=None: {"answer": "Exported chat reply", "sources": []})
+    client.post("/api/chat", json={"message": "Export this conversation"}, headers=ORIGIN)
     response = client.get("/api/account/export")
     assert response.status_code == 200
     assert "attachment" in response.headers["content-disposition"]
     exported = response.json()
     assert exported["user"]["email"] == "export@example.com"
     assert exported["notes"][0]["title"] == "Export me"
+    assert exported["conversations"][0]["title"] == "Export this conversation"
+    assert exported["conversations"][0]["messages"][1]["content"] == "Exported chat reply"
 
 
 def test_account_deletion_requires_password_and_removes_user_data():
