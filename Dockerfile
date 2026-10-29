@@ -6,6 +6,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py ./app.py
 COPY web ./web
+COPY scripts ./scripts
 RUN mkdir -p /app/data && chown -R appuser:appuser /app
 USER appuser
 EXPOSE 8000
