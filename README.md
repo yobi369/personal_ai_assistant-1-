@@ -93,4 +93,4 @@ Before public launch:
 9. Run dependency/security scanning, load tests, independent security review, deployment smoke tests, and backup/restore drills.
 10. Configure logging and monitoring without recording secrets, passwords, session tokens, or unnecessary note contents.
 
-See [SECURITY.md](SECURITY.md) and [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md). The new responsive interface at `web/index.html` is served by the API and supports sign-in, note CRUD, and chat. The original standalone HTML remains a separate design prototype.
+See [SECURITY.md](SECURITY.md), [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md), and [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). The new responsive interface at `web/index.html` is served by the API and supports sign-in, note CRUD, and chat. The original standalone HTML remains a separate design prototype.
