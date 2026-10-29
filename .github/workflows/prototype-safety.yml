@@ -64,3 +64,15 @@ jobs:
           bandit -ll -q -r app.py scripts
       - name: Build container image
         run: docker build --tag personal-ai-assistant:test .
+      - name: Run container smoke test
+        run: |
+          trap 'docker rm -f personal-ai-assistant-smoke >/dev/null 2>&1 || true' EXIT
+          docker run -d --name personal-ai-assistant-smoke -e APP_ORIGIN=https://localhost -e COOKIE_SECURE=true -p 18000:8000 personal-ai-assistant:test
+          for attempt in $(seq 1 30); do
+            if python scripts/smoke_test.py --url http://127.0.0.1:18000; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs personal-ai-assistant-smoke
+          exit 1
