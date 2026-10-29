@@ -12,6 +12,7 @@ A personal knowledge assistant project evolving from a standalone HTML concept i
 - HttpOnly, SameSite=Strict session cookie; enable Secure cookies behind HTTPS.
 - SQLite persistence with foreign-key constraints and indexes.
 - Notes CRUD queries scoped to the authenticated user, including cross-account isolation checks in tests.
+- User data export and password-confirmed account deletion, including cascading deletion of notes and sessions.
 - Optional AI chat through a configurable OpenAI-compatible Chat Completions endpoint. Provider credentials remain server-side.
 - Note excerpts are labelled as untrusted reference material; model answers are instructed to cite note IDs and acknowledge missing evidence.
 - Security headers, request size check, basic per-process rate limits, safe provider/database error messages.
@@ -59,6 +60,8 @@ The AI endpoint remains unavailable if the URL or key is missing. The applicatio
 - `GET /health` — service status and whether AI settings exist (never returns credentials).
 - `POST /api/auth/register` — create an account when registration is enabled.
 - `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`.
+- `GET /api/account/export` — download the signed-in user's notes and account data.
+- `DELETE /api/account` — delete the signed-in account after password confirmation.
 - `GET /api/notes`, `GET /api/notes/{id}`, `POST /api/notes`, `PUT /api/notes/{id}`, `DELETE /api/notes/{id}`.
 - `POST /api/chat` — ask a question with excerpts from the signed-in user's matching notes.
 
@@ -71,7 +74,7 @@ pytest -q
 python -m unittest discover -s tests -v
 ```
 
-Tests cover unauthenticated access, session logout, account isolation, note CRUD, origin checks, password policy, missing AI configuration, and response security headers.
+Tests cover unauthenticated access, session logout, account isolation, note CRUD, origin checks, password policy, missing AI configuration, response security headers, data export, and account deletion.
 
 ## Production deployment checklist
 
