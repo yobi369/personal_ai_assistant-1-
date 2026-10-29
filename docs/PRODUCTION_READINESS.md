@@ -24,7 +24,7 @@ This checklist is an engineering gate, not a claim that the listed controls alre
 - [ ] User-controlled AI memory beyond the notes store
 - [x] API and prototype regression tests, PostgreSQL/Redis integration services, browser JavaScript syntax check, and container build in CI (check the current branch's latest run before release)
 - [ ] Broader browser end-to-end, load, and independent security testing
-- [ ] Dependency vulnerability scanning and static security analysis
+- [x] Dependency vulnerability audit (`pip-audit`) and backend static security scan (`bandit`) in CI
 - [x] Optional Redis-backed distributed rate limiting with fail-closed behavior when configured
 - [ ] Configure managed Redis in production, abuse controls, provider quotas, and operational monitoring
 - [x] SQLite backup/restore scripts with automated integrity tests
