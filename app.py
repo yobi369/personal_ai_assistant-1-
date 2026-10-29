@@ -30,6 +30,8 @@ DATA_DIR = Path(os.getenv("DATA_DIR", "./data")).resolve()
 DB_PATH = Path(os.getenv("DATABASE_PATH", str(DATA_DIR / "assistant.sqlite3"))).resolve()
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 USE_POSTGRES = DATABASE_URL.startswith(("postgres://", "postgresql://"))
+if DATABASE_URL and not USE_POSTGRES:
+    raise RuntimeError("DATABASE_URL must use postgres:// or postgresql://; use an empty value for SQLite.")
 REDIS_URL = os.getenv("REDIS_URL", "").strip()
 redis_client = redis.Redis.from_url(REDIS_URL, decode_responses=True, socket_connect_timeout=2, socket_timeout=2) if REDIS_URL else None
 COOKIE_NAME = "assistant_session"
