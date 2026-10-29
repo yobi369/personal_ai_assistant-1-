@@ -24,7 +24,7 @@ SESSION_TTL_SECONDS = 7 * 24 * 60 * 60
 MAX_BODY_BYTES = 256 * 1024
 MAX_NOTE_CHARS = 20_000
 MAX_CHAT_CHARS = 8_000
-COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
 ALLOW_REGISTRATION = os.getenv("ALLOW_REGISTRATION", "false").lower() == "true"
 APP_ORIGIN = os.getenv("APP_ORIGIN", "").rstrip("/")
 MODEL_API_URL = os.getenv("MODEL_API_URL", "").strip()
