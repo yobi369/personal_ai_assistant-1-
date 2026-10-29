@@ -11,9 +11,9 @@ permissions:
   contents: read
 
 jobs:
-  prototype-safety:
+  tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -21,5 +21,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Run prototype integrity tests
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run prototype safety checks
         run: python -m unittest discover -s tests -v
+      - name: Run API tests
+        run: pytest -q
