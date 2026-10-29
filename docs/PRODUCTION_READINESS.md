@@ -8,15 +8,15 @@ This checklist is an engineering gate, not a claim that the listed controls alre
 - [x] A standalone HTML prototype exists.
 - [x] Demo chat responses are simulated in client-side JavaScript.
 - [x] Sample personal-data counts and insights are hard-coded in the interface.
-- [ ] Real AI provider integration
-- [ ] Backend API and server-side secret management
-- [ ] Authentication and authorization
-- [ ] Durable, access-controlled storage and per-user isolation
+- [x] Configurable OpenAI-compatible chat-completions integration (provider setup and real responses still require deployment configuration and tests)\n- [ ] AI provider privacy review and retrieval/prompt-injection regression suite
+- [x] Initial FastAPI backend and server-side model credential configuration\n- [ ] Production secret manager and verified deployment configuration
+- [x] Initial password authentication, hashed server-side sessions, and user-scoped note queries\n- [ ] Email verification, password reset, session management UI, independent auth review
+- [x] SQLite persistence and user-scoped notes with initial isolation tests\n- [ ] Managed/durable production database, backup/restore drill, and external isolation review
 - [ ] Document ingestion, retrieval, and source citations
 - [ ] User-controlled memory, export, and deletion
-- [ ] Automated unit, integration, and end-to-end tests
+- [x] Initial API and prototype regression tests plus CI workflow (latest run must be checked before treating as passing)\n- [ ] Broader integration, end-to-end, load, and security testing
 - [ ] CI checks and dependency/security scanning
-- [ ] Rate limiting, abuse controls, and operational monitoring
+- [ ] Distributed rate limiting, abuse controls, provider quotas, and operational monitoring (current limiter is per-process only)
 - [ ] Backup and restore test
 - [ ] Deployment smoke test and independent security review
 
@@ -50,4 +50,4 @@ This checklist is an engineering gate, not a claim that the listed controls alre
 
 ## Release decision
 
-**Current decision: NOT READY for production use with real or sensitive data.** This repository is currently a front-end prototype. Reassess this decision only after the unchecked controls are implemented, tested, and reviewed with evidence.
+**Current decision: NOT READY for production use with real or sensitive data.** The repository now includes an initial API and browser UI, but several production controls and independent verification are still missing. Reassess this decision only after the unchecked controls are implemented, tested, and reviewed with evidence.
