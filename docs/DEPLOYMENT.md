@@ -13,7 +13,7 @@ This guide helps run the application reproducibly. It does **not** certify the s
 4. Run `pip install -r requirements.txt` and `uvicorn app:app --reload`.
 5. Open `http://127.0.0.1:8000/` and check `/health`.
 
-Do not expose the local development server directly to the internet.
+For an optional local model, run an OpenAI-compatible local model server and point `MODEL_API_URL` at its loopback `/v1/chat/completions` endpoint. Because local endpoints use HTTP, `ALLOW_INSECURE_MODEL_URL=true` is required for that local-only setup. Never enable this flag for a publicly reachable endpoint.\n\nDo not expose the local development server directly to the internet.
 
 ## Container smoke run
 
