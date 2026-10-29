@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from app import db, hash_password
+from app import db, hash_password, utc_now
 
 
 def create_user(email: str, password: str) -> int:
@@ -18,8 +18,8 @@ def create_user(email: str, password: str) -> int:
         if connection.execute("SELECT id FROM users WHERE email=?", (email,)).fetchone():
             raise ValueError("An account with that email already exists.")
         cursor = connection.execute(
-            "INSERT INTO users(email,password_hash,created_at) VALUES(?,?,datetime('now'))",
-            (email, hash_password(password)),
+            "INSERT INTO users(email,password_hash,created_at) VALUES(?,?,?)",
+            (email, hash_password(password), utc_now()),
         )
         return int(cursor.lastrowid)
 
