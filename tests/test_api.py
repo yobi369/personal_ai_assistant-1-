@@ -52,6 +52,14 @@ def test_health_discloses_ai_configuration_without_secrets():
     assert "secret" not in response.text.lower()
 
 
+def test_session_cookie_is_http_only_and_same_site_strict():
+    response = client.post("/api/auth/register", json={"email": "cookie@example.com", "password": "correct-horse-battery-staple"}, headers=ORIGIN)
+    assert response.status_code == 201
+    cookie = response.headers["set-cookie"].lower()
+    assert "httponly" in cookie
+    assert "samesite=strict" in cookie
+
+
 def test_notes_require_authentication():
     response = client.get("/api/notes")
     assert response.status_code == 401
