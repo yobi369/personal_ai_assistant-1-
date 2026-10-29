@@ -365,4 +365,4 @@ def chat(payload: ChatInput, request: FastAPIRequest, user=Depends(current_user)
 
 @app.get("/")
 def root():
-    return {"name": APP_NAME, "status": "prototype API", "docs": "disabled", "message": "See README.md for setup and configuration."}
+    return FileResponse(Path(__file__).resolve().parent / "web" / "index.html", media_type="text/html")
