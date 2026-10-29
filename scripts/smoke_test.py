@@ -46,7 +46,7 @@ def run_checks(base_url: str, require_ai=False, require_postgres=False, require_
     status, headers, html = fetch(base_url, "/")
     if status != 200 or b"Personal AI Assistant" not in html:
         raise RuntimeError("The browser workspace did not load correctly.")
-    csp = headers.get("Content-Security-Policy", "")
+    csp = next((value for key, value in headers.items() if key.lower() == "content-security-policy"), "")
     if "script-src 'self'" not in csp or "object-src 'none'" not in csp:
         raise RuntimeError("The expected restrictive Content Security Policy is missing.")
 
