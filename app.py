@@ -1,11 +1,13 @@
 import hashlib
 import hmac
 import json
+import logging
 import os
 import re
 import secrets
 import sqlite3
 import time
+import uuid
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -42,6 +44,15 @@ MAX_CHAT_CHARS = 8_000
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
 ALLOW_REGISTRATION = os.getenv("ALLOW_REGISTRATION", "false").lower() == "true"
 APP_ORIGIN = os.getenv("APP_ORIGIN", "").rstrip("/")
+if APP_ORIGIN:
+    parsed_app_origin = urlparse(APP_ORIGIN)
+    local_hosts = {"localhost", "127.0.0.1", "::1", "testserver"}
+    if parsed_app_origin.scheme not in {"http", "https"} or not parsed_app_origin.hostname or parsed_app_origin.path not in {"", "/"} or parsed_app_origin.query or parsed_app_origin.fragment:
+        raise RuntimeError("APP_ORIGIN must be an origin only, such as https://assistant.example.com.")
+    if COOKIE_SECURE and parsed_app_origin.scheme != "https" and parsed_app_origin.hostname not in local_hosts:
+        raise RuntimeError("COOKIE_SECURE=true requires an HTTPS APP_ORIGIN outside local development.")
+elif COOKIE_SECURE:
+    raise RuntimeError("Set APP_ORIGIN to the exact public origin before starting with secure cookies enabled.")
 MODEL_API_URL = os.getenv("MODEL_API_URL", "").strip()
 MODEL_API_KEY = os.getenv("MODEL_API_KEY", "").strip()
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini").strip()
@@ -69,6 +80,7 @@ if REDIS_URL:
     if parsed_redis_url.hostname not in local_hosts and parsed_redis_url.scheme != "rediss":
         raise RuntimeError("Remote REDIS_URL must use rediss:// TLS.")
 
+logger = logging.getLogger("personal_ai_assistant")
 app = FastAPI(title=APP_NAME, version="0.1.0", docs_url=None, redoc_url=None)
 app.mount("/assets", StaticFiles(directory=Path(__file__).resolve().parent / "web"), name="assets")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -345,10 +357,21 @@ class PasswordConfirmation(BaseModel):
 
 @app.middleware("http")
 async def security_middleware(request: FastAPIRequest, call_next):
+    request_id = uuid.uuid4().hex
+    started = time.monotonic()
     length = request.headers.get("content-length")
     if length and length.isdigit() and int(length) > MAX_BODY_BYTES:
-        return JSONResponse(status_code=413, content={"detail": "Request body is too large."})
-    response = await call_next(request)
+        response = JSONResponse(status_code=413, content={"detail": "Request body is too large."})
+    else:
+        try:
+            response = await call_next(request)
+        except Exception as exc:
+            logger.error(
+                "request_failed request_id=%s method=%s path=%s exception_type=%s",
+                request_id, request.method, request.url.path, type(exc).__name__,
+            )
+            raise
+    response.headers["X-Request-ID"] = request_id
     response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
@@ -357,6 +380,11 @@ async def security_middleware(request: FastAPIRequest, call_next):
     response.headers["Cache-Control"] = "no-store"
     if COOKIE_SECURE:
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    logger.info(
+        "request_completed request_id=%s method=%s path=%s status=%s duration_ms=%d",
+        request_id, request.method, request.url.path, response.status_code,
+        int((time.monotonic() - started) * 1000),
+    )
     return response
 
 
