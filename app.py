@@ -366,7 +366,18 @@ async def postgres_error_handler(request: FastAPIRequest, exc: psycopg.Error):
 def health():
     with db() as conn:
         conn.execute("SELECT 1").fetchone()
-    return {"status": "ok", "service": "personal-ai-assistant-api", "ai_configured": bool(MODEL_API_URL and MODEL_API_KEY)}
+    if redis_client is not None:
+        try:
+            redis_client.ping()
+        except redis.RedisError as exc:
+            raise HTTPException(503, "Rate-limit service is temporarily unavailable.") from exc
+    return {
+        "status": "ok",
+        "service": "personal-ai-assistant-api",
+        "ai_configured": bool(MODEL_API_URL and MODEL_API_KEY),
+        "database": "postgresql" if USE_POSTGRES else "sqlite",
+        "rate_limit_store": "redis" if redis_client is not None else "process-local",
+    }
 
 
 @app.post("/api/auth/register", status_code=201)
