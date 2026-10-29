@@ -21,6 +21,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
 APP_NAME = "Personal AI Assistant"
@@ -49,6 +50,7 @@ if USE_POSTGRES:
         raise RuntimeError("Remote PostgreSQL DATABASE_URL must specify sslmode=require or stronger.")
 
 app = FastAPI(title=APP_NAME, version="0.1.0", docs_url=None, redoc_url=None)
+app.mount("/assets", StaticFiles(directory=Path(__file__).resolve().parent / "web"), name="assets")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 _login_attempts = {}
@@ -311,6 +313,7 @@ async def security_middleware(request: FastAPIRequest, call_next):
     if length and length.isdigit() and int(length) > MAX_BODY_BYTES:
         return JSONResponse(status_code=413, content={"detail": "Request body is too large."})
     response = await call_next(request)
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
