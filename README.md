@@ -64,6 +64,7 @@ The AI endpoint remains unavailable if the URL or key is missing. The applicatio
 - `POST /api/auth/register` — create an account when registration is enabled.
 - `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`.
 - `python scripts/create_user.py` — create an initial account from a trusted shell without enabling public sign-up.
+- `python scripts/reset_password.py` — reset an account password from a trusted shell and revoke existing sessions.
 - `GET /api/account/export` — download the signed-in user's notes and account data.
 - `DELETE /api/account` — delete the signed-in account after password confirmation.
 - `GET /api/notes`, `GET /api/notes/{id}`, `POST /api/notes`, `PUT /api/notes/{id}`, `DELETE /api/notes/{id}`.
