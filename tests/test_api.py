@@ -24,7 +24,14 @@ def create_account(email):
     return response.json()["user"]
 
 
-def test_root_serves_the_browser_workspace():\n    response = client.get("/")\n    assert response.status_code == 200\n    assert "Personal AI Assistant" in response.text\n    assert "Knowledge notes" in response.text\n\n\ndef test_health_discloses_ai_configuration_without_secrets():
+def test_root_serves_the_browser_workspace():
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "Personal AI Assistant" in response.text
+    assert "Knowledge notes" in response.text
+
+
+def test_health_discloses_ai_configuration_without_secrets():
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
