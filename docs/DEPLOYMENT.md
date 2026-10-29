@@ -32,6 +32,8 @@ docker run --rm --name personal-ai-assistant \
 
 The named volume preserves the SQLite database across container recreation. Back it up regularly and test restoring a copy. The included CI workflow builds the image but does not publish or deploy it.
 
+Create a local backup with `python scripts/backup_db.py --source ./data/assistant.sqlite3 --backup-dir ./backups`. Store a second copy somewhere separate and access-controlled; a backup on the same host or volume is not disaster recovery. To restore, stop the app first, then run `python scripts/restore_db.py --source ./backups/<verified-backup>.sqlite3 --destination ./data/assistant.sqlite3 --backup-dir ./backups --confirm`. The restore script validates the source and creates a pre-restore backup of the current database when one exists.
+
 ## Before any public deployment
 
 - Terminate HTTPS at a correctly configured reverse proxy and set `COOKIE_SECURE=true` and `APP_ORIGIN=https://your-real-domain`.
