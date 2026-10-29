@@ -16,7 +16,7 @@ This checklist is an engineering gate, not a claim that the listed controls alre
 - [ ] Email verification, password reset, session management UI, independent auth review
 - [x] SQLite persistence for notes and conversations, with user-scoped reads/writes and isolation tests
 - [x] Initial optional PostgreSQL adapter and schema bootstrap
-- [ ] Live managed-PostgreSQL integration test, SQLite-to-PostgreSQL migration plan, durable backup/restore drill, and external isolation review
+- [ ] Managed-provider smoke test with TLS settings, SQLite-to-PostgreSQL migration plan, durable backup/restore drill, and external isolation review
 - [x] Keyword-based retrieval of matching notes and source-note identifiers in chat responses
 - [ ] Semantic/vector search, document ingestion, and independent citation-quality verification
 - [x] Notes and conversation export plus password-confirmed account/notes/conversation deletion (AI memory beyond saved notes is not implemented)
