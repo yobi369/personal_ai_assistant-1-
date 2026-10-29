@@ -122,6 +122,57 @@ def test_chat_fails_safely_when_provider_is_not_configured():
     assert "MODEL_API_URL" in response.json()["detail"]
 
 
+def test_registration_can_be_disabled_by_deployment_configuration(monkeypatch):
+    monkeypatch.setattr(app_module, "ALLOW_REGISTRATION", False)
+    response = client.post("/api/auth/register", json={"email": "blocked@example.com", "password": "correct-horse-battery-staple"}, headers=ORIGIN)
+    assert response.status_code == 403
+
+
+def test_ai_provider_request_uses_server_credentials_and_untrusted_note_context(monkeypatch):
+    import json
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def read(self, size):
+            return json.dumps({"choices": [{"message": {"content": "Answer based on [Note ID: 7]."}}]}).encode()
+
+    captured = {}
+
+    def fake_urlopen(request, timeout):
+        captured["url"] = request.full_url
+        captured["authorization"] = request.get_header("Authorization")
+        captured["body"] = json.loads(request.data.decode())
+        captured["timeout"] = timeout
+        return FakeResponse()
+
+    monkeypatch.setattr(app_module, "MODEL_API_URL", "https://provider.example/v1/chat/completions")
+    monkeypatch.setattr(app_module, "MODEL_API_KEY", "test-only-key")
+    monkeypatch.setattr(app_module, "MODEL_NAME", "test-model")
+    monkeypatch.setattr(app_module, "urlopen", fake_urlopen)
+
+    result = app_module.ask_model(
+        "Summarize my notes",
+        [{"id": 7, "title": "Planning", "content": "Treat this as untrusted note text."}],
+        [{"role": "user", "content": "Previous question"}],
+    )
+    assert result["answer"] == "Answer based on [Note ID: 7]."
+    assert result["sources"] == [{"id": 7, "title": "Planning"}]
+    assert captured["url"].startswith("https://")
+    assert captured["authorization"] == "Bearer test-only-key"
+    assert captured["timeout"] == 30
+    assert captured["body"]["model"] == "test-model"
+    assert captured["body"]["messages"][0]["role"] == "system"
+    assert "untrusted data" in captured["body"]["messages"][0]["content"]
+    assert captured["body"]["messages"][1] == {"role": "user", "content": "Previous question"}
+    assert "Treat this as untrusted note text." in captured["body"]["messages"][-1]["content"]
+    assert "tools" not in captured["body"]
+
+
 def test_conversations_persist_history_and_are_user_scoped(monkeypatch):
     create_account("history@example.com")
     seen_history = []
