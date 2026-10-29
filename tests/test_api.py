@@ -53,6 +53,8 @@ def test_root_serves_the_browser_workspace():
     assert "Search saved notes" in response.text
     assert "Recent conversations" in response.text
     assert '<script src="/assets/app.js" defer></script>' in response.text
+    assert "<script>" not in response.text
+    assert 'style="' not in response.text
     assert client.get("/assets/app.js").status_code == 200
     assert client.get("/assets/styles.css").status_code == 200
 
@@ -170,6 +172,28 @@ def test_postgres_adapter_converts_placeholders_and_returns_inserted_ids():
     adapter.execute("DELETE FROM notes WHERE id=? AND user_id=?", (7, 9))
     assert connection.sql == "DELETE FROM notes WHERE id=%s AND user_id=%s"
     assert connection.params == (7, 9)
+
+
+def test_secure_cookies_reject_remote_http_origin():
+    import subprocess
+
+    environment = os.environ.copy()
+    environment["APP_ORIGIN"] = "http://assistant.example.com"
+    environment["COOKIE_SECURE"] = "true"
+    environment["DATABASE_URL"] = ""
+    environment["REDIS_URL"] = ""
+    environment["DATA_DIR"] = tempfile.mkdtemp(prefix="origin-guard-")
+    environment["DATABASE_PATH"] = str(Path(environment["DATA_DIR"]) / "assistant.sqlite3")
+    result = subprocess.run(
+        [sys.executable, "-c", "import app"],
+        cwd=Path(__file__).resolve().parents[1],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode != 0
+    assert "requires an HTTPS APP_ORIGIN" in result.stderr
 
 
 def test_unsupported_database_url_does_not_silently_fall_back_to_sqlite():
@@ -412,4 +436,5 @@ def test_security_headers_are_present():
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["x-frame-options"] == "DENY"
     assert response.headers["cache-control"] == "no-store"
+    assert len(response.headers["x-request-id"]) == 32
     assert "script-src 'self'" in response.headers["content-security-policy"]
