@@ -17,7 +17,8 @@ A personal knowledge assistant project evolving from a standalone HTML concept i
 - Persistent, account-scoped conversation history with recent turns supplied as context for follow-up questions.
 - Bounded keyword-based note matching; this is not yet semantic/vector search, and model-provider requests can include matching note excerpts and recent chat history.
 - Note excerpts are labelled as untrusted reference material; model answers are instructed to cite note IDs and acknowledge missing evidence.
-- Restrictive Content Security Policy with external browser assets, security headers, request size check, and safe provider/database error messages.
+- Restrictive Content Security Policy with external browser assets, security headers, request size checks, privacy-safe request IDs, and request duration/status logs without request bodies.
+- Health endpoint checks database and configured Redis availability; Docker includes a health check.
 - Optional Redis-backed shared rate limits for multi-worker deployments; local development falls back to per-process limits.
 - Docker image runs as a non-root user and CI verifies the container build.
 - SQLite backup/restore scripts perform integrity checks, preserve a pre-restore copy, and have automated tests.
