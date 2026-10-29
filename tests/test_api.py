@@ -200,6 +200,16 @@ def test_trusted_shell_password_reset_revokes_existing_sessions():
     assert new_login.status_code == 200
 
 
+def test_rate_limiter_rejects_excessive_registration_attempts():
+    key = "personal-ai-assistant:rate:testclient:register"
+    if app_module.redis_client is not None:
+        app_module.redis_client.set(key, 5, ex=300)
+    else:
+        app_module._login_attempts["testclient:register"] = [app_module.time.time()] * 5
+    response = client.post("/api/auth/register", json={"email": "rate-limit@example.com", "password": "correct-horse-battery-staple"}, headers=ORIGIN)
+    assert response.status_code == 429
+
+
 def test_registration_can_be_disabled_by_deployment_configuration(monkeypatch):
     monkeypatch.setattr(app_module, "ALLOW_REGISTRATION", False)
     response = client.post("/api/auth/register", json={"email": "blocked@example.com", "password": "correct-horse-battery-staple"}, headers=ORIGIN)
