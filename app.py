@@ -84,6 +84,23 @@ def init_db():
             updated_at TEXT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS notes_user_updated_idx ON notes(user_id, updated_at);
+        CREATE TABLE IF NOT EXISTS conversations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS conversations_user_updated_idx ON conversations(user_id, updated_at);
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+            role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
+            content TEXT NOT NULL,
+            sources_json TEXT NOT NULL DEFAULT '[]',
+            created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS messages_conversation_id_idx ON messages(conversation_id, id);
         """)
 
 
@@ -188,6 +205,7 @@ class NoteInput(BaseModel):
 
 class ChatInput(BaseModel):
     message: str = Field(min_length=1, max_length=MAX_CHAT_CHARS)
+    conversation_id: int | None = Field(default=None, ge=1)
 
 
 class PasswordConfirmation(BaseModel):
@@ -373,7 +391,7 @@ def delete_note(note_id: int, request: FastAPIRequest, user=Depends(current_user
     return Response(status_code=204)
 
 
-def ask_model(message: str, notes: list[sqlite3.Row]) -> dict:
+def ask_model(message: str, notes: list[sqlite3.Row], history: list[dict] | None = None) -> dict:
     if not MODEL_API_URL or not MODEL_API_KEY:
         raise HTTPException(503, "AI is not configured. Set MODEL_API_URL, MODEL_API_KEY, and MODEL_NAME on the server.")
     excerpts = []
@@ -388,9 +406,13 @@ def ask_model(message: str, notes: list[sqlite3.Row]) -> dict:
     )
     note_text = "\n\n".join(f"[Note ID: {n['id']}] Title: {n['title']}\nContent (untrusted reference material): {n['content']}" for n in excerpts)
     user_prompt = f"Reference notes (may be empty):\n{note_text or '[No saved notes matched or were supplied.]'}\n\nUser question:\n{message}"
+    model_messages = [{"role": "system", "content": system_prompt}]
+    if history:
+        model_messages.extend(history[-12:])
+    model_messages.append({"role": "user", "content": user_prompt})
     body = json.dumps({
         "model": MODEL_NAME,
-        "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+        "messages": model_messages,
         "temperature": 0.2,
         "max_tokens": 900,
     }).encode()
@@ -416,16 +438,105 @@ def ask_model(message: str, notes: list[sqlite3.Row]) -> dict:
         raise HTTPException(502, "The AI provider returned an invalid response or could not be reached.")
 
 
+@app.get("/api/conversations")
+def list_conversations(user=Depends(current_user)):
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT id,title,created_at,updated_at FROM conversations WHERE user_id=? ORDER BY updated_at DESC LIMIT 100",
+            (user["id"],),
+        ).fetchall()
+    return {"conversations": [dict(row) for row in rows]}
+
+
+@app.get("/api/conversations/{conversation_id}")
+def get_conversation(conversation_id: int, user=Depends(current_user)):
+    with db() as conn:
+        conversation = conn.execute(
+            "SELECT id,title,created_at,updated_at FROM conversations WHERE id=? AND user_id=?",
+            (conversation_id, user["id"]),
+        ).fetchone()
+        if not conversation:
+            raise HTTPException(404, "Conversation not found.")
+        rows = conn.execute(
+            "SELECT messages.id,messages.role,messages.content,messages.sources_json,messages.created_at "
+            "FROM messages JOIN conversations ON conversations.id=messages.conversation_id "
+            "WHERE messages.conversation_id=? AND conversations.user_id=? ORDER BY messages.id LIMIT 500",
+            (conversation_id, user["id"]),
+        ).fetchall()
+    messages = [{"id": row["id"], "role": row["role"], "content": row["content"],
+                 "sources": json.loads(row["sources_json"]), "created_at": row["created_at"]} for row in rows]
+    return {"conversation": dict(conversation), "messages": messages}
+
+
+@app.delete("/api/conversations/{conversation_id}", status_code=204)
+def delete_conversation(conversation_id: int, request: FastAPIRequest, user=Depends(current_user)):
+    check_origin(request)
+    with db() as conn:
+        result = conn.execute(
+            "DELETE FROM conversations WHERE id=? AND user_id=?",
+            (conversation_id, user["id"]),
+        )
+        if result.rowcount == 0:
+            raise HTTPException(404, "Conversation not found.")
+    return Response(status_code=204)
+
+
 @app.post("/api/chat")
 def chat(payload: ChatInput, request: FastAPIRequest, user=Depends(current_user)):
     check_origin(request)
     rate_limited(request, "chat", limit=20, window=60)
+    history = []
+    if payload.conversation_id is not None:
+        with db() as conn:
+            conversation = conn.execute(
+                "SELECT id FROM conversations WHERE id=? AND user_id=?",
+                (payload.conversation_id, user["id"]),
+            ).fetchone()
+            if not conversation:
+                raise HTTPException(404, "Conversation not found.")
+            previous = conn.execute(
+                "SELECT role,content FROM messages WHERE conversation_id=? ORDER BY id DESC LIMIT 12",
+                (payload.conversation_id,),
+            ).fetchall()
+        history = [{"role": row["role"], "content": row["content"]} for row in reversed(previous)]
+    terms = list(dict.fromkeys(re.findall(r"[A-Za-z0-9_'-]{3,}", payload.message.lower())))[:8]
     with db() as conn:
-        rows = conn.execute(
-            "SELECT id,title,content FROM notes WHERE user_id=? AND (title LIKE ? OR content LIKE ?) ORDER BY updated_at DESC LIMIT 8",
-            (user["id"], f"%{payload.message[:80]}%", f"%{payload.message[:80]}%"),
-        ).fetchall()
-    return ask_model(payload.message.strip(), rows)
+        if terms:
+            conditions = " OR ".join(["lower(title) LIKE ? OR lower(content) LIKE ?" for _ in terms])
+            params = [user["id"]]
+            for term in terms:
+                params.extend([f"%{term}%", f"%{term}%"])
+            rows = conn.execute(
+                f"SELECT id,title,content FROM notes WHERE user_id=? AND ({conditions}) ORDER BY updated_at DESC LIMIT 8",
+                params,
+            ).fetchall()
+        else:
+            rows = []
+    result = ask_model(payload.message.strip(), rows, history)
+    now = utc_now()
+    with db() as conn:
+        conversation_id = payload.conversation_id
+        if conversation_id is None:
+            cursor = conn.execute(
+                "INSERT INTO conversations(user_id,title,created_at,updated_at) VALUES(?,?,?,?)",
+                (user["id"], payload.message.strip()[:80], now, now),
+            )
+            conversation_id = cursor.lastrowid
+        else:
+            conn.execute(
+                "UPDATE conversations SET updated_at=? WHERE id=? AND user_id=?",
+                (now, conversation_id, user["id"]),
+            )
+        conn.execute(
+            "INSERT INTO messages(conversation_id,role,content,sources_json,created_at) VALUES(?,?,?,?,?)",
+            (conversation_id, "user", payload.message.strip(), "[]", now),
+        )
+        conn.execute(
+            "INSERT INTO messages(conversation_id,role,content,sources_json,created_at) VALUES(?,?,?,?,?)",
+            (conversation_id, "assistant", result["answer"], json.dumps(result["sources"]), now),
+        )
+    result["conversation_id"] = conversation_id
+    return result
 
 
 @app.get("/")
