@@ -177,6 +177,10 @@ class ChatInput(BaseModel):
     message: str = Field(min_length=1, max_length=MAX_CHAT_CHARS)
 
 
+class PasswordConfirmation(BaseModel):
+    password: str = Field(min_length=12, max_length=256)
+
+
 @app.middleware("http")
 async def security_middleware(request: FastAPIRequest, call_next):
     length = request.headers.get("content-length")
@@ -261,6 +265,34 @@ def logout(request: FastAPIRequest, response: Response, user=Depends(current_use
 @app.get("/api/auth/me")
 def me(user=Depends(current_user)):
     return {"user": user}
+
+
+@app.get("/api/account/export")
+def export_account(user=Depends(current_user)):
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT id,title,content,created_at,updated_at FROM notes WHERE user_id=? ORDER BY created_at",
+            (user["id"],),
+        ).fetchall()
+    payload = {"exported_at": utc_now(), "user": user, "notes": [dict(row) for row in rows]}
+    return Response(
+        content=json.dumps(payload, ensure_ascii=False, indent=2),
+        media_type="application/json",
+        headers={"Content-Disposition": "attachment; filename=personal-ai-assistant-export.json"},
+    )
+
+
+@app.delete("/api/account")
+def delete_account(payload: PasswordConfirmation, request: FastAPIRequest, response: Response, user=Depends(current_user)):
+    check_origin(request)
+    token = request.cookies.get(COOKIE_NAME)
+    with db() as conn:
+        row = conn.execute("SELECT password_hash FROM users WHERE id=?", (user["id"],)).fetchone()
+        if not row or not verify_password(payload.password, row["password_hash"]):
+            raise HTTPException(401, "Password confirmation failed.")
+        conn.execute("DELETE FROM users WHERE id=?", (user["id"],))
+    response.delete_cookie(COOKIE_NAME, path="/", httponly=True, secure=COOKIE_SECURE, samesite="strict")
+    return {"ok": True, "message": "Account and associated notes were deleted."}
 
 
 @app.get("/api/notes")
