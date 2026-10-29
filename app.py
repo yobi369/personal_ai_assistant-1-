@@ -286,6 +286,18 @@ def create_note(payload: NoteInput, request: FastAPIRequest, user=Depends(curren
     return {"note": {"id": note_id, "title": payload.title, "content": payload.content, "created_at": now, "updated_at": now}}
 
 
+@app.get("/api/notes/{note_id}")
+def get_note(note_id: int, user=Depends(current_user)):
+    with db() as conn:
+        row = conn.execute(
+            "SELECT id,title,content,created_at,updated_at FROM notes WHERE id=? AND user_id=?",
+            (note_id, user["id"]),
+        ).fetchone()
+    if not row:
+        raise HTTPException(404, "Note not found.")
+    return {"note": dict(row)}
+
+
 @app.put("/api/notes/{note_id}")
 def update_note(note_id: int, payload: NoteInput, request: FastAPIRequest, user=Depends(current_user)):
     check_origin(request)
