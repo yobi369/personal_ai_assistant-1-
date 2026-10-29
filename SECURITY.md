@@ -2,7 +2,7 @@
 
 ## Status
 
-This repository currently contains a front-end prototype. It does not yet provide a production backend, authenticated accounts, a real AI provider integration, or verified secure storage. Do not enter secrets, credentials, or sensitive personal information into the demo.
+This repository now includes an early FastAPI backend, account sessions, user-scoped notes and conversations, data export/deletion, and an optional OpenAI-compatible provider adapter. It is **not production-ready or independently security-reviewed**. Provider credentials and production storage have not been configured or verified in a live deployment. Do not use highly sensitive personal information or rely on it for critical decisions.
 
 ## Reporting a vulnerability
 
@@ -25,5 +25,5 @@ Do not access, alter, or retain data belonging to other people while investigati
 - Apply least privilege to tools and require explicit approval for consequential actions.
 - Use request size limits, rate limiting, timeouts, and cost controls.
 - Avoid logging secrets or unnecessary sensitive prompt/document contents.
-- Provide data export and deletion, documented retention, and secure backup/restore.
-- Pin and audit dependencies, run automated tests and security checks, and review deployment configuration.
+- Provide data export and deletion, documented retention, and secure backup/restore. Export/deletion controls exist for the current notes and conversations, but retention and backup/restore still require deployment-level implementation.
+- Pin and audit dependencies, run automated tests and security checks, and review deployment configuration. CI runs regression tests and builds the container; independent security review and production smoke tests remain outstanding.
