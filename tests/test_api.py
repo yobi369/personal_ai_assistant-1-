@@ -200,6 +200,26 @@ def test_trusted_shell_password_reset_revokes_existing_sessions():
     assert new_login.status_code == 200
 
 
+def test_remote_redis_requires_tls():
+    import subprocess
+
+    environment = os.environ.copy()
+    environment["DATABASE_URL"] = "postgresql://assistant:test-password@localhost:5432/assistant_test?sslmode=disable"
+    environment["REDIS_URL"] = "redis://cache.example.com:6379/0"
+    environment["DATA_DIR"] = tempfile.mkdtemp(prefix="redis-tls-guard-")
+    environment["DATABASE_PATH"] = str(Path(environment["DATA_DIR"]) / "assistant.sqlite3")
+    result = subprocess.run(
+        [sys.executable, "-c", "import app"],
+        cwd=Path(__file__).resolve().parents[1],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode != 0
+    assert "Remote REDIS_URL must use rediss:// TLS" in result.stderr
+
+
 def test_rate_limiter_rejects_excessive_registration_attempts():
     key = "personal-ai-assistant:rate:testclient:register"
     if app_module.redis_client is not None:
