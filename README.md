@@ -18,7 +18,8 @@ A personal knowledge assistant project evolving from a standalone HTML concept i
 - Bounded keyword-based note matching; this is not yet semantic/vector search, and model-provider requests can include matching note excerpts and recent chat history.
 - Note excerpts are labelled as untrusted reference material; model answers are instructed to cite note IDs and acknowledge missing evidence.
 - Security headers, request size check, basic per-process rate limits, safe provider/database error messages.
-- Docker image runs as a non-root user.
+- Docker image runs as a non-root user and CI verifies the container build.
+- SQLite backup/restore scripts perform integrity checks, preserve a pre-restore copy, and have automated tests.
 
 ## Run locally
 
@@ -93,4 +94,4 @@ Before public launch:
 9. Run dependency/security scanning, load tests, independent security review, deployment smoke tests, and backup/restore drills.
 10. Configure logging and monitoring without recording secrets, passwords, session tokens, or unnecessary note contents.
 
-See [SECURITY.md](SECURITY.md), [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md), and [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). The new responsive interface at `web/index.html` is served by the API and supports sign-in, note CRUD, and chat. The original standalone HTML remains a separate design prototype.
+See [SECURITY.md](SECURITY.md), [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md), and [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for deployment and backup/restore procedures. The new responsive interface at `web/index.html` is served by the API and supports sign-in, note CRUD, and chat. The original standalone HTML remains a separate design prototype.
