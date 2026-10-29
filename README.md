@@ -10,7 +10,7 @@ A personal knowledge assistant project evolving from a standalone HTML concept i
 - Email/password registration controlled by the server's `ALLOW_REGISTRATION` setting, plus a trusted-shell bootstrap script for private installations.
 - PBKDF2-SHA256 password hashing and opaque server-validated sessions stored as hashed tokens.
 - HttpOnly, SameSite=Strict session cookie; enable Secure cookies behind HTTPS.
-- SQLite persistence with foreign-key constraints and indexes.
+- SQLite persistence by default, with an optional PostgreSQL backend selected using `DATABASE_URL` (live managed-database integration and migration testing remain required).
 - Notes CRUD queries scoped to the authenticated user, including cross-account isolation checks in tests.
 - User data export and password-confirmed account deletion, including cascading deletion of notes and sessions.
 - Optional AI chat through a configurable OpenAI-compatible Chat Completions endpoint. Provider credentials remain server-side.
