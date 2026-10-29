@@ -14,6 +14,8 @@ A personal knowledge assistant project evolving from a standalone HTML concept i
 - Notes CRUD queries scoped to the authenticated user, including cross-account isolation checks in tests.
 - User data export and password-confirmed account deletion, including cascading deletion of notes and sessions.
 - Optional AI chat through a configurable OpenAI-compatible Chat Completions endpoint. Provider credentials remain server-side.
+- Persistent, account-scoped conversation history with recent turns supplied as context for follow-up questions.
+- Bounded keyword-based note matching; this is not yet semantic/vector search, and model-provider requests can include matching note excerpts and recent chat history.
 - Note excerpts are labelled as untrusted reference material; model answers are instructed to cite note IDs and acknowledge missing evidence.
 - Security headers, request size check, basic per-process rate limits, safe provider/database error messages.
 - Docker image runs as a non-root user.
@@ -63,7 +65,8 @@ The AI endpoint remains unavailable if the URL or key is missing. The applicatio
 - `GET /api/account/export` — download the signed-in user's notes and account data.
 - `DELETE /api/account` — delete the signed-in account after password confirmation.
 - `GET /api/notes`, `GET /api/notes/{id}`, `POST /api/notes`, `PUT /api/notes/{id}`, `DELETE /api/notes/{id}`.
-- `POST /api/chat` — ask a question with excerpts from the signed-in user's matching notes.
+- `GET /api/conversations`, `GET /api/conversations/{id}`, `DELETE /api/conversations/{id}` — list, read, and delete private chat history.
+- `POST /api/chat` — ask a question with recent conversation context and excerpts from matching notes.
 
 Write requests validate browser Origin when present. Set `APP_ORIGIN` to the exact public origin. API clients that do not send an Origin header are supported; if you expose this API to untrusted clients, add an explicit API-client CSRF/authentication policy and network-level abuse controls.
 
@@ -74,7 +77,7 @@ pytest -q
 python -m unittest discover -s tests -v
 ```
 
-Tests cover unauthenticated access, session logout, account isolation, note CRUD, origin checks, password policy, missing AI configuration, response security headers, data export, and account deletion.
+Tests cover unauthenticated access, session logout, account isolation, note CRUD, origin checks, password policy, missing AI configuration, response security headers, conversation history/isolation, data export, and account deletion.
 
 ## Production deployment checklist
 
