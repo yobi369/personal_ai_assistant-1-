@@ -201,6 +201,8 @@ async def database_error_handler(request: FastAPIRequest, exc: sqlite3.Error):
 
 @app.get("/health")
 def health():
+    with db() as conn:
+        conn.execute("SELECT 1").fetchone()
     return {"status": "ok", "service": "personal-ai-assistant-api", "ai_configured": bool(MODEL_API_URL and MODEL_API_KEY)}
 
 
