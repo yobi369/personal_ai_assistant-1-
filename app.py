@@ -635,7 +635,7 @@ def delete_conversation(conversation_id: int, request: FastAPIRequest, user=Depe
 @app.post("/api/chat")
 def chat(payload: ChatInput, request: FastAPIRequest, user=Depends(current_user)):
     check_origin(request)
-    rate_limited(request, "chat", limit=20, window=60)
+    rate_limited(request, f"chat:{user['id']}", limit=20, window=60)
     history = []
     if payload.conversation_id is not None:
         with db() as conn:
