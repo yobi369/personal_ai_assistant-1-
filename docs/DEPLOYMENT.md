@@ -38,7 +38,7 @@ Create a local backup with `python scripts/backup_db.py --source ./data/assistan
 
 - Terminate HTTPS at a correctly configured reverse proxy and set `COOKIE_SECURE=true` and `APP_ORIGIN=https://your-real-domain`.
 - Keep the service behind a trusted proxy/firewall; configure proxy trust explicitly before using forwarded headers.
-- Set `ALLOW_REGISTRATION=false` after a reviewed account bootstrap/invitation process is available. The current product does not yet provide invitations or account bootstrap, so plan this carefully before disabling sign-up.
+- For a private installation, create the first account from a trusted shell with `python scripts/create_user.py`, then set `ALLOW_REGISTRATION=false` and restart the service. The script prompts for a password without echoing it. The product does not yet provide email invitations or self-service account recovery.
 - Use a durable, private disk with restricted access and verified backups. The current database layer is SQLite; ephemeral container filesystems will lose user data on redeploy. A managed PostgreSQL adapter/migration is not implemented yet.
 - Configure the AI provider's privacy/retention settings, usage quotas, request limits, and spending alerts before enabling real user traffic.
 - Add password reset/email verification, session revocation UI, persistent distributed rate limiting, monitoring, incident response, and dependency vulnerability scanning.
