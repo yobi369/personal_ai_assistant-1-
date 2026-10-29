@@ -165,6 +165,25 @@ def test_postgres_adapter_converts_placeholders_and_returns_inserted_ids():
     assert connection.params == (7, 9)
 
 
+def test_remote_postgres_requires_explicit_tls_mode():
+    import subprocess
+
+    environment = os.environ.copy()
+    environment["DATABASE_URL"] = "postgresql://assistant:secret@db.example.com/assistant"
+    environment["DATA_DIR"] = tempfile.mkdtemp(prefix="tls-guard-")
+    environment["DATABASE_PATH"] = str(Path(environment["DATA_DIR"]) / "assistant.sqlite3")
+    result = subprocess.run(
+        [sys.executable, "-c", "import app"],
+        cwd=Path(__file__).resolve().parents[1],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode != 0
+    assert "sslmode=require or stronger" in result.stderr
+
+
 def test_registration_can_be_disabled_by_deployment_configuration(monkeypatch):
     monkeypatch.setattr(app_module, "ALLOW_REGISTRATION", False)
     response = client.post("/api/auth/register", json={"email": "blocked@example.com", "password": "correct-horse-battery-staple"}, headers=ORIGIN)
