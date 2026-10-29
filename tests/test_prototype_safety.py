@@ -36,7 +36,7 @@ class PrototypeSafetyChecks(unittest.TestCase):
 
     def test_release_limitations_are_documented(self):
         self.assertIn("NOT READY", self.readiness)
-        self.assertIn("not certified production-ready", self.readme.lower())
+        self.assertIn("not production-ready", self.readme.lower())
         self.assertIn("least privilege", self.security.lower())
 
 if __name__ == "__main__":
