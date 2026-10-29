@@ -30,9 +30,13 @@ ORIGIN = {"origin": "http://testserver"}
 def reset_test_state():
     client.cookies.clear()
     _login_attempts.clear()
+    if app_module.redis_client is not None:
+        app_module.redis_client.flushdb()
     yield
     client.cookies.clear()
     _login_attempts.clear()
+    if app_module.redis_client is not None:
+        app_module.redis_client.flushdb()
 
 
 def create_account(email):
