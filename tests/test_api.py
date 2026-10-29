@@ -15,6 +15,7 @@ os.environ.pop("MODEL_API_URL", None)
 os.environ.pop("MODEL_API_KEY", None)
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from fastapi.testclient import TestClient
 import app as app_module
 from app import app, _login_attempts
