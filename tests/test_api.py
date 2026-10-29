@@ -53,6 +53,8 @@ def test_root_serves_the_browser_workspace():
     assert "Search saved notes" in response.text
     assert "Recent conversations" in response.text
     assert '<script src="/assets/app.js" defer></script>' in response.text
+    assert "<script>" not in response.text
+    assert 'style="' not in response.text
     assert client.get("/assets/app.js").status_code == 200
     assert client.get("/assets/styles.css").status_code == 200
 
