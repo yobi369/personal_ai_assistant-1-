@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import psycopg
+import redis
 from psycopg.rows import dict_row
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -29,6 +30,8 @@ DATA_DIR = Path(os.getenv("DATA_DIR", "./data")).resolve()
 DB_PATH = Path(os.getenv("DATABASE_PATH", str(DATA_DIR / "assistant.sqlite3"))).resolve()
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 USE_POSTGRES = DATABASE_URL.startswith(("postgres://", "postgresql://"))
+REDIS_URL = os.getenv("REDIS_URL", "").strip()
+redis_client = redis.Redis.from_url(REDIS_URL, decode_responses=True, socket_connect_timeout=2, socket_timeout=2) if REDIS_URL else None
 COOKIE_NAME = "assistant_session"
 SESSION_TTL_SECONDS = 7 * 24 * 60 * 60
 MAX_BODY_BYTES = 256 * 1024
@@ -48,6 +51,13 @@ if USE_POSTGRES:
     ssl_mode = parse_qs(parsed_database_url.query).get("sslmode", [""])[0].lower()
     if parsed_database_url.hostname not in local_hosts and ssl_mode not in {"require", "verify-ca", "verify-full"}:
         raise RuntimeError("Remote PostgreSQL DATABASE_URL must specify sslmode=require or stronger.")
+if REDIS_URL:
+    parsed_redis_url = urlparse(REDIS_URL)
+    local_hosts = {"localhost", "127.0.0.1", "::1"}
+    if parsed_redis_url.scheme not in {"redis", "rediss"}:
+        raise RuntimeError("REDIS_URL must use redis:// or rediss://.")
+    if parsed_redis_url.hostname not in local_hosts and parsed_redis_url.scheme != "rediss":
+        raise RuntimeError("Remote REDIS_URL must use rediss:// TLS.")
 
 app = FastAPI(title=APP_NAME, version="0.1.0", docs_url=None, redoc_url=None)
 app.mount("/assets", StaticFiles(directory=Path(__file__).resolve().parent / "web"), name="assets")
@@ -232,8 +242,24 @@ def token_digest(token: str) -> str:
 
 def rate_limited(request: FastAPIRequest, key: str, limit: int = 10, window: int = 300):
     global _rate_limit_calls
-    # Per-process safety net only. Production deployments also need gateway-level limits.
     client = request.client.host if request.client else "unknown"
+    if redis_client is not None:
+        redis_key = f"personal-ai-assistant:rate:{client}:{key}"
+        try:
+            count = redis_client.eval(
+                "local n=redis.call('INCR',KEYS[1]); if n==1 then redis.call('EXPIRE',KEYS[1],ARGV[1]); end; return n",
+                1,
+                redis_key,
+                window,
+            )
+        except redis.RedisError as exc:
+            # Do not silently fall back to per-process limits when distributed limits are configured.
+            raise HTTPException(503, "Rate-limit service is temporarily unavailable.") from exc
+        if int(count) > limit:
+            raise HTTPException(429, "Too many attempts. Please wait and try again.")
+        return
+
+    # Local development fallback only; multi-worker deployments should configure Redis.
     now = time.time()
     bucket_key = f"{client}:{key}"
     recent = [stamp for stamp in _login_attempts.get(bucket_key, []) if now - stamp < window]
