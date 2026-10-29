@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from fastapi.testclient import TestClient
 import app as app_module
-from app import app, _login_attempts
+from app import app, _login_attempts, PostgresConnection
 from create_user import create_user
 
 client = TestClient(app)
@@ -131,6 +131,35 @@ def test_trusted_shell_bootstrap_works_when_public_registration_is_disabled(monk
     login = client.post("/api/auth/login", json={"email": "bootstrap@example.com", "password": "correct-horse-battery-staple"}, headers=ORIGIN)
     assert login.status_code == 200
     assert login.json()["user"]["email"] == "bootstrap@example.com"
+
+
+def test_postgres_adapter_converts_placeholders_and_returns_inserted_ids():
+    class FakeCursor:
+        rowcount = 1
+        def fetchone(self):
+            return {"id": 42}
+        def fetchall(self):
+            return []
+
+    class FakeConnection:
+        def __init__(self):
+            self.sql = None
+            self.params = None
+        def execute(self, sql, params):
+            self.sql = sql
+            self.params = params
+            return FakeCursor()
+
+    connection = FakeConnection()
+    adapter = PostgresConnection(connection)
+    cursor = adapter.execute("INSERT INTO users(email) VALUES(?)", ("test@example.com",))
+    assert connection.sql == "INSERT INTO users(email) VALUES(%s) RETURNING id"
+    assert connection.params == ("test@example.com",)
+    assert cursor.lastrowid == 42
+
+    adapter.execute("DELETE FROM notes WHERE id=? AND user_id=?", (7, 9))
+    assert connection.sql == "DELETE FROM notes WHERE id=%s AND user_id=%s"
+    assert connection.params == (7, 9)
 
 
 def test_registration_can_be_disabled_by_deployment_configuration(monkeypatch):
