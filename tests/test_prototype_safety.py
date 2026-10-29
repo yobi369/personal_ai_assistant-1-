@@ -28,7 +28,7 @@ class PrototypeSafetyChecks(unittest.TestCase):
         self.assertNotIn("100% Local Processing", self.html)
         self.assertNotIn("Zero Cloud Data", self.html)
         self.assertNotIn("Zero data transmission to external servers", self.html)
-        self.assertIn("have not been verified", self.html)
+        self.assertIn("not implemented or verified", self.html)
 
     def test_fake_live_metric_mutation_is_absent(self):
         self.assertNotIn("setInterval(", self.html)
