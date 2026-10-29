@@ -172,6 +172,26 @@ def test_postgres_adapter_converts_placeholders_and_returns_inserted_ids():
     assert connection.params == (7, 9)
 
 
+def test_unsupported_database_url_does_not_silently_fall_back_to_sqlite():
+    import subprocess
+
+    environment = os.environ.copy()
+    environment["DATABASE_URL"] = "mysql://assistant:secret@db.example.com/assistant"
+    environment["REDIS_URL"] = "redis://localhost:6379/0"
+    environment["DATA_DIR"] = tempfile.mkdtemp(prefix="database-scheme-guard-")
+    environment["DATABASE_PATH"] = str(Path(environment["DATA_DIR"]) / "assistant.sqlite3")
+    result = subprocess.run(
+        [sys.executable, "-c", "import app"],
+        cwd=Path(__file__).resolve().parents[1],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode != 0
+    assert "DATABASE_URL must use postgres://" in result.stderr
+
+
 def test_remote_postgres_requires_explicit_tls_mode():
     import subprocess
 
