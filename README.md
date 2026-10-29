@@ -1,42 +1,90 @@
 # Personal AI Knowledge Assistant
 
-A privacy-conscious personal knowledge assistant concept focused on helping people organize notes and documents, explore information, and work with their own knowledge base.
+A personal knowledge assistant project evolving from a standalone HTML concept into a small API-backed application. The API adds account sessions, per-user notes, and an optional OpenAI-compatible chat-completions endpoint.
 
-> **Project status:** prototype / development foundation. The current HTML interface includes simulated insights and canned chat responses. It is not yet a connected AI system, and its sample data is illustrative rather than real user data. Do not rely on the current interface for real decisions or sensitive information.
+> **Status: early development, not production-ready.** Authentication and notes are implemented as an initial vertical slice, but this is not yet a complete or independently security-reviewed product. Do not use it for highly sensitive information or critical decisions.
 
-## Product direction
+## Current capabilities
 
-- **Local-first by default:** keep personal notes and documents under the user's control wherever feasible.
-- **Grounded answers:** when retrieval is implemented, cite the documents or passages used and clearly state when evidence is missing.
-- **User-controlled memory:** provide inspect, edit, export, and delete controls for saved memories.
-- **Least-privilege tools:** tools should have explicit permissions; require confirmation before sending messages, modifying files, or taking other consequential actions.
-- **Transparent operation:** distinguish real integrations and computed metrics from demo content.
+- FastAPI backend with a health endpoint.
+- Email/password registration controlled by the server's `ALLOW_REGISTRATION` setting.
+- PBKDF2-SHA256 password hashing and opaque server-validated sessions stored as hashed tokens.
+- HttpOnly, SameSite=Strict session cookie; enable Secure cookies behind HTTPS.
+- SQLite persistence with foreign-key constraints and indexes.
+- Notes CRUD queries scoped to the authenticated user, including cross-account isolation checks in tests.
+- Optional AI chat through a configurable OpenAI-compatible Chat Completions endpoint. Provider credentials remain server-side.
+- Note excerpts are labelled as untrusted reference material; model answers are instructed to cite note IDs and acknowledge missing evidence.
+- Security headers, request size check, basic per-process rate limits, safe provider/database error messages.
+- Docker image runs as a non-root user.
 
-## Current repository
+## Run locally
 
-- `personal_ai_assistant (1).html` — standalone visual prototype.
-- `AI Personal Knowledge Assistant - Documentation.pdf` — original project documentation.
+Requires Python 3.11 or newer.
 
-## Development roadmap
+```bash
+python -m venv .venv
+# Linux/macOS
+source .venv/bin/activate
+# Windows PowerShell: .venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+cp .env.example .env
+```
 
-1. Replace demo-only responses and fabricated metrics with clearly labelled sample states and real application state.
-2. Establish a maintainable app structure, dependency management, formatting/linting, automated tests, and CI.
-3. Implement a secure server/API boundary and a configurable model-provider interface; never expose provider keys in browser code.
-4. Add authenticated user data isolation, persistent storage, document ingestion, retrieval, and source-linked answers.
-5. Implement privacy controls, export/deletion, retention settings, and safe logging.
-6. Add rate limits, input and output validation, prompt-injection defenses, least-privilege tool execution, and approval gates for consequential actions.
-7. Verify deployment, backup/restore, monitoring, and security tests before making production claims.
+Set the variables from `.env.example` in your shell or deployment configuration. For local development, set:
 
-## Security principles
+- `APP_ORIGIN=http://127.0.0.1:8000`
+- `ALLOW_REGISTRATION=true`
+- `COOKIE_SECURE=false`
 
-Follow the current [OWASP GenAI security guidance](https://genai.owasp.org/) for prompt injection, sensitive information disclosure, excessive agency, supply-chain risk, and unbounded consumption. Model instructions are not an authorization boundary: enforce access control in application code.
+Then run:
 
-See [SECURITY.md](SECURITY.md) and [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md).
+```bash
+uvicorn app:app --reload
+```
 
-## Running the prototype
+Open `http://127.0.0.1:8000/health`. The root endpoint describes the API. Interactive API documentation is disabled by default.
 
-Open `personal_ai_assistant (1).html` in a modern browser. The current interface is a front-end demonstration only; chat responses are simulated and no AI provider or document index is connected.
+## Configure an AI provider
 
-## Production readiness
+Set these **on the server only**:
 
-This repository is **not certified production-ready**. A real deployment requires implementation and verification of authentication, persistence, data isolation, provider integration, automated tests, deployment controls, and operational recovery procedures. See the readiness checklist before using real personal data.
+- `MODEL_API_URL`: full HTTPS URL for a compatible `/chat/completions` endpoint.
+- `MODEL_API_KEY`: secret API key; never commit it or put it in browser JavaScript.
+- `MODEL_NAME`: provider-supported model name.
+
+The AI endpoint remains unavailable if the URL or key is missing. The application does not silently fabricate AI answers. A compatible provider may still receive the user question and selected note excerpts, so review its privacy and retention terms before enabling it.
+
+## API overview
+
+- `GET /health` — service status and whether AI settings exist (never returns credentials).
+- `POST /api/auth/register` — create an account when registration is enabled.
+- `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`.
+- `GET /api/notes`, `POST /api/notes`, `PUT /api/notes/{id}`, `DELETE /api/notes/{id}`.
+- `POST /api/chat` — ask a question with excerpts from the signed-in user's matching notes.
+
+Write requests validate browser Origin when present. Set `APP_ORIGIN` to the exact public origin. API clients that do not send an Origin header are supported; if you expose this API to untrusted clients, add an explicit API-client CSRF/authentication policy and network-level abuse controls.
+
+## Tests
+
+```bash
+pytest -q
+python -m unittest discover -s tests -v
+```
+
+Tests cover unauthenticated access, session logout, account isolation, note CRUD, origin checks, password policy, missing AI configuration, and response security headers.
+
+## Production deployment checklist
+
+Before public launch:
+1. Set `COOKIE_SECURE=true`, `APP_ORIGIN` to the exact HTTPS origin, and `ALLOW_REGISTRATION=false` unless open registration is intentionally required.
+2. Add a reviewed account bootstrap/invitation flow before disabling registration for all new installations.
+3. Use durable private storage or a managed database; back up and test restore. SQLite on ephemeral container disks loses data on redeploy.
+4. Add persistent distributed rate limiting, abuse detection, quotas, and provider spend limits; the current limiter is per-process only.
+5. Configure trusted proxy handling correctly for the deployment; do not trust arbitrary forwarded headers.
+6. Add password reset, email verification, session management/revocation UI, account deletion, and data export.
+7. Add document upload/indexing only with file-type validation, malware scanning, storage limits, deletion propagation, and tenant isolation.
+8. Review prompt-injection and retrieval-based data exfiltration risks; the current app intentionally has no tool execution.
+9. Run dependency/security scanning, load tests, independent security review, deployment smoke tests, and backup/restore drills.
+10. Configure logging and monitoring without recording secrets, passwords, session tokens, or unnecessary note contents.
+
+See [SECURITY.md](SECURITY.md) and [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md). The standalone HTML remains a design prototype and has not yet been wired to this API.
