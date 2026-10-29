@@ -47,6 +47,9 @@ def test_root_serves_the_browser_workspace():
     assert "Knowledge notes" in response.text
     assert "Search saved notes" in response.text
     assert "Recent conversations" in response.text
+    assert '<script src="/assets/app.js" defer></script>' in response.text
+    assert client.get("/assets/app.js").status_code == 200
+    assert client.get("/assets/styles.css").status_code == 200
 
 
 def test_health_discloses_ai_configuration_without_secrets():
@@ -278,3 +281,4 @@ def test_security_headers_are_present():
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["x-frame-options"] == "DENY"
     assert response.headers["cache-control"] == "no-store"
+    assert "script-src 'self'" in response.headers["content-security-policy"]
