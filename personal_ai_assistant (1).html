@@ -628,20 +628,7 @@
             }
         });
 
-        // Simulate real-time updates
-        setInterval(() => {
-            const metrics = document.querySelectorAll('.metric-value');
-            metrics.forEach(metric => {
-                if (metric.textContent.includes('%')) {
-                    const current = parseInt(metric.textContent);
-                    if (current < 100) {
-                        metric.textContent = Math.min(100, current + Math.floor(Math.random() * 2)) + '%';
-                    }
-                }
-            });
-        }, 5000);
-
-        // Animate task items on load
+        // Metrics remain static illustrative sample values in prototype mode.\n\n        // Animate task items on load
         setTimeout(() => {
             document.querySelectorAll('.task-item, .insight-card').forEach((item, index) => {
                 item.style.opacity = '0';
