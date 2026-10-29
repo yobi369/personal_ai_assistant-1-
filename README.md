@@ -10,14 +10,15 @@ A personal knowledge assistant project evolving from a standalone HTML concept i
 - Email/password registration controlled by the server's `ALLOW_REGISTRATION` setting, plus a trusted-shell bootstrap script for private installations.
 - PBKDF2-SHA256 password hashing and opaque server-validated sessions stored as hashed tokens.
 - HttpOnly, SameSite=Strict session cookie; enable Secure cookies behind HTTPS.
-- SQLite persistence with foreign-key constraints and indexes.
+- SQLite persistence by default, with an optional PostgreSQL backend selected using `DATABASE_URL` (live managed-database integration and migration testing remain required).
 - Notes CRUD queries scoped to the authenticated user, including cross-account isolation checks in tests.
 - User data export and password-confirmed account deletion, including cascading deletion of notes and sessions.
 - Optional AI chat through a configurable OpenAI-compatible Chat Completions endpoint. Provider credentials remain server-side.
 - Persistent, account-scoped conversation history with recent turns supplied as context for follow-up questions.
 - Bounded keyword-based note matching; this is not yet semantic/vector search, and model-provider requests can include matching note excerpts and recent chat history.
 - Note excerpts are labelled as untrusted reference material; model answers are instructed to cite note IDs and acknowledge missing evidence.
-- Security headers, request size check, basic per-process rate limits, safe provider/database error messages.
+- Restrictive Content Security Policy with external browser assets, security headers, request size check, and safe provider/database error messages.
+- Optional Redis-backed shared rate limits for multi-worker deployments; local development falls back to per-process limits.
 - Docker image runs as a non-root user and CI verifies the container build.
 - SQLite backup/restore scripts perform integrity checks, preserve a pre-restore copy, and have automated tests.
 
@@ -64,6 +65,7 @@ The AI endpoint remains unavailable if the URL or key is missing. The applicatio
 - `POST /api/auth/register` — create an account when registration is enabled.
 - `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`.
 - `python scripts/create_user.py` — create an initial account from a trusted shell without enabling public sign-up.
+- `python scripts/reset_password.py` — reset an account password from a trusted shell and revoke existing sessions.
 - `GET /api/account/export` — download the signed-in user's notes and account data.
 - `DELETE /api/account` — delete the signed-in account after password confirmation.
 - `GET /api/notes`, `GET /api/notes/{id}`, `POST /api/notes`, `PUT /api/notes/{id}`, `DELETE /api/notes/{id}`.
@@ -75,11 +77,12 @@ Write requests validate browser Origin when present. Set `APP_ORIGIN` to the exa
 ## Tests
 
 ```bash
+pip install -r requirements-dev.txt
 pytest -q
 python -m unittest discover -s tests -v
 ```
 
-Tests cover unauthenticated access, session logout, account isolation, note CRUD, origin checks, password policy, missing AI configuration, response security headers, conversation history/isolation, data export, and account deletion.
+Tests cover unauthenticated access, session logout, account isolation, note CRUD, origin checks, password policy, missing AI configuration, response security headers, conversation history/isolation, data export, account deletion, PostgreSQL SQL adaptation, and SQLite backup/restore. CI runs the API suite against disposable PostgreSQL and Redis services, checks browser JavaScript syntax, and builds the container image.
 
 ## Production deployment checklist
 

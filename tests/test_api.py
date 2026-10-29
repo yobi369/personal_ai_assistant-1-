@@ -18,8 +18,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from fastapi.testclient import TestClient
 import app as app_module
-from app import app, _login_attempts
+from app import app, _login_attempts, PostgresConnection
 from create_user import create_user
+from reset_password import reset_password
 
 client = TestClient(app)
 ORIGIN = {"origin": "http://testserver"}
@@ -29,9 +30,13 @@ ORIGIN = {"origin": "http://testserver"}
 def reset_test_state():
     client.cookies.clear()
     _login_attempts.clear()
+    if app_module.redis_client is not None and hasattr(app_module.redis_client, "flushdb"):
+        app_module.redis_client.flushdb()
     yield
     client.cookies.clear()
     _login_attempts.clear()
+    if app_module.redis_client is not None:
+        app_module.redis_client.flushdb()
 
 
 def create_account(email):
@@ -47,6 +52,9 @@ def test_root_serves_the_browser_workspace():
     assert "Knowledge notes" in response.text
     assert "Search saved notes" in response.text
     assert "Recent conversations" in response.text
+    assert '<script src="/assets/app.js" defer></script>' in response.text
+    assert client.get("/assets/app.js").status_code == 200
+    assert client.get("/assets/styles.css").status_code == 200
 
 
 def test_health_discloses_ai_configuration_without_secrets():
@@ -54,6 +62,8 @@ def test_health_discloses_ai_configuration_without_secrets():
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
     assert response.json()["ai_configured"] is False
+    assert response.json()["database"] in {"sqlite", "postgresql"}
+    assert response.json()["rate_limit_store"] in {"redis", "process-local"}
     assert "secret" not in response.text.lower()
 
 
@@ -131,6 +141,159 @@ def test_trusted_shell_bootstrap_works_when_public_registration_is_disabled(monk
     login = client.post("/api/auth/login", json={"email": "bootstrap@example.com", "password": "correct-horse-battery-staple"}, headers=ORIGIN)
     assert login.status_code == 200
     assert login.json()["user"]["email"] == "bootstrap@example.com"
+
+
+def test_postgres_adapter_converts_placeholders_and_returns_inserted_ids():
+    class FakeCursor:
+        rowcount = 1
+        def fetchone(self):
+            return {"id": 42}
+        def fetchall(self):
+            return []
+
+    class FakeConnection:
+        def __init__(self):
+            self.sql = None
+            self.params = None
+        def execute(self, sql, params):
+            self.sql = sql
+            self.params = params
+            return FakeCursor()
+
+    connection = FakeConnection()
+    adapter = PostgresConnection(connection)
+    cursor = adapter.execute("INSERT INTO users(email) VALUES(?)", ("test@example.com",))
+    assert connection.sql == "INSERT INTO users(email) VALUES(%s) RETURNING id"
+    assert connection.params == ("test@example.com",)
+    assert cursor.lastrowid == 42
+
+    adapter.execute("DELETE FROM notes WHERE id=? AND user_id=?", (7, 9))
+    assert connection.sql == "DELETE FROM notes WHERE id=%s AND user_id=%s"
+    assert connection.params == (7, 9)
+
+
+def test_unsupported_database_url_does_not_silently_fall_back_to_sqlite():
+    import subprocess
+
+    environment = os.environ.copy()
+    environment["DATABASE_URL"] = "mysql://assistant:secret@db.example.com/assistant"
+    environment["REDIS_URL"] = "redis://localhost:6379/0"
+    environment["DATA_DIR"] = tempfile.mkdtemp(prefix="database-scheme-guard-")
+    environment["DATABASE_PATH"] = str(Path(environment["DATA_DIR"]) / "assistant.sqlite3")
+    result = subprocess.run(
+        [sys.executable, "-c", "import app"],
+        cwd=Path(__file__).resolve().parents[1],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode != 0
+    assert "DATABASE_URL must use postgres://" in result.stderr
+
+
+def test_remote_postgres_requires_explicit_tls_mode():
+    import subprocess
+
+    environment = os.environ.copy()
+    environment["DATABASE_URL"] = "postgresql://assistant:secret@db.example.com/assistant"
+    environment["DATA_DIR"] = tempfile.mkdtemp(prefix="tls-guard-")
+    environment["DATABASE_PATH"] = str(Path(environment["DATA_DIR"]) / "assistant.sqlite3")
+    result = subprocess.run(
+        [sys.executable, "-c", "import app"],
+        cwd=Path(__file__).resolve().parents[1],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode != 0
+    assert "sslmode=require or stronger" in result.stderr
+
+
+def test_trusted_shell_password_reset_revokes_existing_sessions():
+    create_account("recovery@example.com")
+    assert client.get("/api/auth/me").status_code == 200
+    reset_password("recovery@example.com", "new-correct-horse-battery")
+    assert client.get("/api/auth/me").status_code == 401
+    old_login = client.post("/api/auth/login", json={"email": "recovery@example.com", "password": "correct-horse-battery-staple"}, headers=ORIGIN)
+    assert old_login.status_code == 401
+    new_login = client.post("/api/auth/login", json={"email": "recovery@example.com", "password": "new-correct-horse-battery"}, headers=ORIGIN)
+    assert new_login.status_code == 200
+
+
+def test_model_url_rejects_non_http_schemes_even_when_local_http_is_enabled():
+    import subprocess
+
+    environment = os.environ.copy()
+    environment["DATABASE_URL"] = "postgresql://assistant:test-password@localhost:5432/assistant_test?sslmode=disable"
+    environment["REDIS_URL"] = "redis://localhost:6379/0"
+    environment["MODEL_API_URL"] = "file:///etc/passwd"
+    environment["MODEL_API_KEY"] = "test-key"
+    environment["ALLOW_INSECURE_MODEL_URL"] = "true"
+    environment["DATA_DIR"] = tempfile.mkdtemp(prefix="model-url-guard-")
+    environment["DATABASE_PATH"] = str(Path(environment["DATA_DIR"]) / "assistant.sqlite3")
+    result = subprocess.run(
+        [sys.executable, "-c", "import app"],
+        cwd=Path(__file__).resolve().parents[1],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode != 0
+    assert "HTTP is allowed only for trusted loopback testing" in result.stderr
+
+
+def test_remote_redis_requires_tls():
+    import subprocess
+
+    environment = os.environ.copy()
+    environment["DATABASE_URL"] = "postgresql://assistant:test-password@localhost:5432/assistant_test?sslmode=disable"
+    environment["REDIS_URL"] = "redis://cache.example.com:6379/0"
+    environment["DATA_DIR"] = tempfile.mkdtemp(prefix="redis-tls-guard-")
+    environment["DATABASE_PATH"] = str(Path(environment["DATA_DIR"]) / "assistant.sqlite3")
+    result = subprocess.run(
+        [sys.executable, "-c", "import app"],
+        cwd=Path(__file__).resolve().parents[1],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode != 0
+    assert "Remote REDIS_URL must use rediss:// TLS" in result.stderr
+
+
+def test_rate_limiter_rejects_excessive_registration_attempts():
+    key = "personal-ai-assistant:rate:testclient:register"
+    if app_module.redis_client is not None:
+        app_module.redis_client.set(key, 5, ex=300)
+    else:
+        app_module._login_attempts["testclient:register"] = [app_module.time.time()] * 5
+    response = client.post("/api/auth/register", json={"email": "rate-limit@example.com", "password": "correct-horse-battery-staple"}, headers=ORIGIN)
+    assert response.status_code == 429
+
+
+def test_health_fails_if_configured_redis_is_unavailable(monkeypatch):
+    class BrokenRedis:
+        def ping(self):
+            raise app_module.redis.RedisError("test outage")
+
+    monkeypatch.setattr(app_module, "redis_client", BrokenRedis())
+    response = client.get("/health")
+    assert response.status_code == 503
+
+
+def test_rate_limiter_fails_closed_if_redis_is_unavailable(monkeypatch):
+    class BrokenRedis:
+        def eval(self, *args, **kwargs):
+            raise app_module.redis.RedisError("test outage")
+
+    monkeypatch.setattr(app_module, "redis_client", BrokenRedis())
+    response = client.post("/api/auth/register", json={"email": "redis-outage@example.com", "password": "correct-horse-battery-staple"}, headers=ORIGIN)
+    assert response.status_code == 503
+    assert "Rate-limit service" in response.json()["detail"]
 
 
 def test_registration_can_be_disabled_by_deployment_configuration(monkeypatch):
@@ -249,3 +412,4 @@ def test_security_headers_are_present():
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["x-frame-options"] == "DENY"
     assert response.headers["cache-control"] == "no-store"
+    assert "script-src 'self'" in response.headers["content-security-policy"]

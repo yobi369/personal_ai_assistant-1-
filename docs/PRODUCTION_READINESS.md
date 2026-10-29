@@ -13,17 +13,20 @@ This checklist is an engineering gate, not a claim that the listed controls alre
 - [x] Initial FastAPI backend and server-side model credential configuration
 - [ ] Production secret manager and verified deployment configuration
 - [x] Initial password authentication, hashed server-side sessions, and user-scoped note queries
-- [ ] Email verification, password reset, session management UI, independent auth review
+- [x] Trusted-shell account bootstrap and password reset with session revocation
+- [ ] Email verification, self-service password reset, session management UI, independent auth review
 - [x] SQLite persistence for notes and conversations, with user-scoped reads/writes and isolation tests
-- [ ] Managed/durable production database, backup/restore drill, and external isolation review
+- [x] Initial optional PostgreSQL adapter and schema bootstrap
+- [ ] Managed-provider smoke test with TLS settings, SQLite-to-PostgreSQL migration plan, durable backup/restore drill, and external isolation review
 - [x] Keyword-based retrieval of matching notes and source-note identifiers in chat responses
 - [ ] Semantic/vector search, document ingestion, and independent citation-quality verification
 - [x] Notes and conversation export plus password-confirmed account/notes/conversation deletion (AI memory beyond saved notes is not implemented)
 - [ ] User-controlled AI memory beyond the notes store
-- [x] Initial API and prototype regression tests plus CI workflow (check the current branch's latest run before release)
-- [ ] Broader integration, end-to-end, load, and security testing (container build and CI checks are being added)
-- [ ] CI checks and dependency/security scanning
-- [ ] Distributed rate limiting, abuse controls, provider quotas, and operational monitoring (current limiter is per-process only)
+- [x] API and prototype regression tests, PostgreSQL/Redis integration services, browser JavaScript syntax check, and container build in CI (check the current branch's latest run before release)
+- [ ] Broader browser end-to-end, load, and independent security testing
+- [x] Dependency vulnerability audit (`pip-audit`) and backend static security scan (`bandit`) in CI
+- [x] Optional Redis-backed distributed rate limiting with fail-closed behavior when configured
+- [ ] Configure managed Redis in production, abuse controls, provider quotas, and operational monitoring
 - [x] SQLite backup/restore scripts with automated integrity tests
 - [ ] Offsite backup and production restore drill
 - [ ] Deployment smoke test and independent security review

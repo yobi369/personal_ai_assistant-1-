@@ -16,6 +16,8 @@ load_dotenv()
 
 
 def database_path() -> Path:
+    if os.getenv("DATABASE_URL", "").startswith(("postgres://", "postgresql://")):
+        raise RuntimeError("This script backs up SQLite only. Use your PostgreSQL provider backup tools for DATABASE_URL deployments.")
     return Path(os.getenv("DATABASE_PATH", str(Path(os.getenv("DATA_DIR", "./data")) / "assistant.sqlite3"))).resolve()
 
 

@@ -9,19 +9,31 @@ import time
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+import psycopg
+import redis
+from psycopg.rows import dict_row
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from urllib.parse import parse_qs, urlparse
 
 from fastapi import FastAPI, HTTPException, Request as FastAPIRequest, Response, Depends
 from dotenv import load_dotenv
 
 load_dotenv()
 from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
 APP_NAME = "Personal AI Assistant"
 DATA_DIR = Path(os.getenv("DATA_DIR", "./data")).resolve()
 DB_PATH = Path(os.getenv("DATABASE_PATH", str(DATA_DIR / "assistant.sqlite3"))).resolve()
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+USE_POSTGRES = DATABASE_URL.startswith(("postgres://", "postgresql://"))
+if DATABASE_URL and not USE_POSTGRES:
+    raise RuntimeError("DATABASE_URL must use postgres:// or postgresql://; use an empty value for SQLite.")
+REDIS_URL = os.getenv("REDIS_URL", "").strip()
+redis_client = redis.Redis.from_url(REDIS_URL, decode_responses=True, socket_connect_timeout=2, socket_timeout=2) if REDIS_URL else None
 COOKIE_NAME = "assistant_session"
 SESSION_TTL_SECONDS = 7 * 24 * 60 * 60
 MAX_BODY_BYTES = 256 * 1024
@@ -33,22 +45,125 @@ APP_ORIGIN = os.getenv("APP_ORIGIN", "").rstrip("/")
 MODEL_API_URL = os.getenv("MODEL_API_URL", "").strip()
 MODEL_API_KEY = os.getenv("MODEL_API_KEY", "").strip()
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini").strip()
-if MODEL_API_URL and not MODEL_API_URL.startswith("https://") and os.getenv("ALLOW_INSECURE_MODEL_URL", "false").lower() != "true":
-    raise RuntimeError("MODEL_API_URL must use HTTPS unless ALLOW_INSECURE_MODEL_URL=true.")
+if MODEL_API_URL:
+    parsed_model_url = urlparse(MODEL_API_URL)
+    local_hosts = {"localhost", "127.0.0.1", "::1"}
+    allow_local_http = os.getenv("ALLOW_INSECURE_MODEL_URL", "false").lower() == "true"
+    if parsed_model_url.scheme != "https" and not (
+        allow_local_http and parsed_model_url.scheme == "http" and parsed_model_url.hostname in local_hosts
+    ):
+        raise RuntimeError("MODEL_API_URL must use HTTPS; HTTP is allowed only for trusted loopback testing.")
+    if not parsed_model_url.hostname:
+        raise RuntimeError("MODEL_API_URL must include a valid hostname.")
+if USE_POSTGRES:
+    parsed_database_url = urlparse(DATABASE_URL.replace("postgres://", "postgresql://", 1))
+    local_hosts = {"localhost", "127.0.0.1", "::1"}
+    ssl_mode = parse_qs(parsed_database_url.query).get("sslmode", [""])[0].lower()
+    if parsed_database_url.hostname not in local_hosts and ssl_mode not in {"require", "verify-ca", "verify-full"}:
+        raise RuntimeError("Remote PostgreSQL DATABASE_URL must specify sslmode=require or stronger.")
+if REDIS_URL:
+    parsed_redis_url = urlparse(REDIS_URL)
+    local_hosts = {"localhost", "127.0.0.1", "::1"}
+    if parsed_redis_url.scheme not in {"redis", "rediss"}:
+        raise RuntimeError("REDIS_URL must use redis:// or rediss://.")
+    if parsed_redis_url.hostname not in local_hosts and parsed_redis_url.scheme != "rediss":
+        raise RuntimeError("Remote REDIS_URL must use rediss:// TLS.")
 
 app = FastAPI(title=APP_NAME, version="0.1.0", docs_url=None, redoc_url=None)
+app.mount("/assets", StaticFiles(directory=Path(__file__).resolve().parent / "web"), name="assets")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 _login_attempts = {}
 _rate_limit_calls = 0
 
 
+class PostgresCursor:
+    def __init__(self, cursor, returns_id=False):
+        self._cursor = cursor
+        self._returns_id = returns_id
+        self._lastrowid_loaded = False
+        self._lastrowid = None
+
+    @property
+    def lastrowid(self):
+        if self._returns_id and not self._lastrowid_loaded:
+            row = self._cursor.fetchone()
+            self._lastrowid = row["id"] if row else None
+            self._lastrowid_loaded = True
+        return self._lastrowid
+
+    @property
+    def rowcount(self):
+        return self._cursor.rowcount
+
+    def fetchone(self):
+        return self._cursor.fetchone()
+
+    def fetchall(self):
+        return self._cursor.fetchall()
+
+
+class PostgresConnection:
+    """Small DB-API adapter for the SQL subset used by this application."""
+
+    def __init__(self, connection):
+        self._connection = connection
+
+    @staticmethod
+    def adapt_sql(sql):
+        statement = sql.strip()
+        if statement.upper().startswith("PRAGMA"):
+            return None, False
+        adapted = statement.replace("?", "%s")
+        returns_id = bool(re.match(r"^INSERT\s+INTO\s+(users|notes|conversations)\b", adapted, re.I))
+        if returns_id and not re.search(r"\bRETURNING\b", adapted, re.I):
+            adapted += " RETURNING id"
+        return adapted, returns_id
+
+    def execute(self, sql, params=()):
+        adapted, returns_id = self.adapt_sql(sql)
+        if adapted is None:
+            return PostgresCursor(EmptyCursor())
+        cursor = self._connection.execute(adapted, params or ())
+        return PostgresCursor(cursor, returns_id=returns_id)
+
+    def executescript(self, script):
+        adapted = script.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "BIGSERIAL PRIMARY KEY")
+        adapted = adapted.replace("user_id INTEGER NOT NULL REFERENCES", "user_id BIGINT NOT NULL REFERENCES")
+        adapted = adapted.replace("conversation_id INTEGER NOT NULL REFERENCES", "conversation_id BIGINT NOT NULL REFERENCES")
+        adapted = adapted.replace("expires_at INTEGER NOT NULL", "expires_at BIGINT NOT NULL")
+        for statement in adapted.split(";"):
+            if statement.strip():
+                self.execute(statement)
+
+    def commit(self):
+        self._connection.commit()
+
+    def rollback(self):
+        self._connection.rollback()
+
+    def close(self):
+        self._connection.close()
+
+
+class EmptyCursor:
+    rowcount = -1
+    def fetchone(self):
+        return None
+    def fetchall(self):
+        return []
+
+
 @contextmanager
 def db():
-    connection = sqlite3.connect(DB_PATH, timeout=10)
-    connection.row_factory = sqlite3.Row
-    connection.execute("PRAGMA foreign_keys = ON")
-    connection.execute("PRAGMA journal_mode = WAL")
+    if USE_POSTGRES:
+        url = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+        connection = PostgresConnection(psycopg.connect(url, row_factory=dict_row, connect_timeout=10))
+    else:
+        connection = sqlite3.connect(DB_PATH, timeout=10)
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("PRAGMA journal_mode = WAL")
     try:
         yield connection
         connection.commit()
@@ -113,8 +228,8 @@ def utc_now():
 
 def hash_password(password: str) -> str:
     salt = secrets.token_bytes(16)
-    derived = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 310_000)
-    return "pbkdf2_sha256$310000$" + salt.hex() + "$" + derived.hex()
+    derived = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 600_000)
+    return "pbkdf2_sha256$600000$" + salt.hex() + "$" + derived.hex()
 
 
 DUMMY_PASSWORD_HASH = hash_password("invalid-login-dummy-password-value")
@@ -137,8 +252,24 @@ def token_digest(token: str) -> str:
 
 def rate_limited(request: FastAPIRequest, key: str, limit: int = 10, window: int = 300):
     global _rate_limit_calls
-    # Per-process safety net only. Production deployments also need gateway-level limits.
     client = request.client.host if request.client else "unknown"
+    if redis_client is not None:
+        redis_key = f"personal-ai-assistant:rate:{client}:{key}"
+        try:
+            count = redis_client.eval(
+                "local n=redis.call('INCR',KEYS[1]); if n==1 then redis.call('EXPIRE',KEYS[1],ARGV[1]); end; return n",
+                1,
+                redis_key,
+                window,
+            )
+        except redis.RedisError as exc:
+            # Do not silently fall back to per-process limits when distributed limits are configured.
+            raise HTTPException(503, "Rate-limit service is temporarily unavailable.") from exc
+        if int(count) > limit:
+            raise HTTPException(429, "Too many attempts. Please wait and try again.")
+        return
+
+    # Local development fallback only; multi-worker deployments should configure Redis.
     now = time.time()
     bucket_key = f"{client}:{key}"
     recent = [stamp for stamp in _login_attempts.get(bucket_key, []) if now - stamp < window]
@@ -218,6 +349,7 @@ async def security_middleware(request: FastAPIRequest, call_next):
     if length and length.isdigit() and int(length) > MAX_BODY_BYTES:
         return JSONResponse(status_code=413, content={"detail": "Request body is too large."})
     response = await call_next(request)
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
@@ -234,11 +366,28 @@ async def database_error_handler(request: FastAPIRequest, exc: sqlite3.Error):
     return JSONResponse(status_code=503, content={"detail": "Storage is temporarily unavailable."})
 
 
+@app.exception_handler(psycopg.Error)
+async def postgres_error_handler(request: FastAPIRequest, exc: psycopg.Error):
+    # Never expose database internals or SQL statements to clients.
+    return JSONResponse(status_code=503, content={"detail": "Storage is temporarily unavailable."})
+
+
 @app.get("/health")
 def health():
     with db() as conn:
         conn.execute("SELECT 1").fetchone()
-    return {"status": "ok", "service": "personal-ai-assistant-api", "ai_configured": bool(MODEL_API_URL and MODEL_API_KEY)}
+    if redis_client is not None:
+        try:
+            redis_client.ping()
+        except redis.RedisError as exc:
+            raise HTTPException(503, "Rate-limit service is temporarily unavailable.") from exc
+    return {
+        "status": "ok",
+        "service": "personal-ai-assistant-api",
+        "ai_configured": bool(MODEL_API_URL and MODEL_API_KEY),
+        "database": "postgresql" if USE_POSTGRES else "sqlite",
+        "rate_limit_store": "redis" if redis_client is not None else "process-local",
+    }
 
 
 @app.post("/api/auth/register", status_code=201)
@@ -259,6 +408,7 @@ def register(payload: Credentials, request: FastAPIRequest, response: Response):
         user_id = cursor.lastrowid
     token = secrets.token_urlsafe(32)
     with db() as conn:
+        conn.execute("DELETE FROM sessions WHERE expires_at<=?", (int(time.time()),))
         conn.execute("INSERT INTO sessions(token_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)",
                      (token_digest(token), user_id, int(time.time()) + SESSION_TTL_SECONDS, utc_now()))
     response.set_cookie(COOKIE_NAME, token, httponly=True, secure=COOKIE_SECURE, samesite="strict",
@@ -278,6 +428,7 @@ def login(payload: Credentials, request: FastAPIRequest, response: Response):
         raise HTTPException(401, "Invalid email or password.")
     token = secrets.token_urlsafe(32)
     with db() as conn:
+        conn.execute("DELETE FROM sessions WHERE expires_at<=?", (int(time.time()),))
         conn.execute("INSERT INTO sessions(token_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)",
                      (token_digest(token), row["id"], int(time.time()) + SESSION_TTL_SECONDS, utc_now()))
     response.set_cookie(COOKIE_NAME, token, httponly=True, secure=COOKIE_SECURE, samesite="strict",
@@ -431,7 +582,10 @@ def ask_model(message: str, notes: list[sqlite3.Row], history: list[dict] | None
     user_prompt = f"Reference notes (may be empty):\n{note_text or '[No saved notes matched or were supplied.]'}\n\nUser question:\n{message}"
     model_messages = [{"role": "system", "content": system_prompt}]
     if history:
-        model_messages.extend(history[-12:])
+        model_messages.extend(
+            {"role": item["role"], "content": item["content"][:2000]}
+            for item in history[-8:]
+        )
     model_messages.append({"role": "user", "content": user_prompt})
     body = json.dumps({
         "model": MODEL_NAME,
@@ -445,7 +599,7 @@ def ask_model(message: str, notes: list[sqlite3.Row], history: list[dict] | None
         "Accept": "application/json",
     }, method="POST")
     try:
-        with urlopen(request, timeout=30) as result:
+        with urlopen(request, timeout=30) as result:  # nosec B310 - URL scheme/host are allowlisted at startup
             payload = json.loads(result.read(1_000_000).decode("utf-8"))
         answer = payload["choices"][0]["message"]["content"]
         if not isinstance(answer, str) or not answer.strip():
@@ -507,7 +661,7 @@ def delete_conversation(conversation_id: int, request: FastAPIRequest, user=Depe
 @app.post("/api/chat")
 def chat(payload: ChatInput, request: FastAPIRequest, user=Depends(current_user)):
     check_origin(request)
-    rate_limited(request, "chat", limit=20, window=60)
+    rate_limited(request, f"chat:{user['id']}", limit=20, window=60)
     history = []
     if payload.conversation_id is not None:
         with db() as conn:
@@ -530,7 +684,7 @@ def chat(payload: ChatInput, request: FastAPIRequest, user=Depends(current_user)
             for term in terms:
                 params.extend([f"%{term}%", f"%{term}%"])
             rows = conn.execute(
-                f"SELECT id,title,content FROM notes WHERE user_id=? AND ({conditions}) ORDER BY updated_at DESC LIMIT 8",
+                f"SELECT id,title,content FROM notes WHERE user_id=? AND ({conditions}) ORDER BY updated_at DESC LIMIT 8",  # nosec B608 - fixed clauses only; user terms are bound parameters
                 params,
             ).fetchall()
         else:

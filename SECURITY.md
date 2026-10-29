@@ -19,11 +19,13 @@ Do not access, alter, or retain data belonging to other people while investigati
 ## Security requirements before production
 
 - Keep model-provider keys and other secrets on the server, never in browser code or committed files.
+- Use HTTPS for model providers, TLS for remote PostgreSQL, and `rediss://` for remote Redis. HTTP model URLs are permitted only for explicitly enabled loopback development.
 - Enforce authentication, authorization, and per-user data isolation server-side.
 - Validate inputs and outputs; render untrusted text safely.
+- Keep browser assets external and use a restrictive Content Security Policy to reduce inline-script injection risk.
 - Treat user prompts, uploaded documents, retrieved passages, and tool results as untrusted data.
 - Apply least privilege to tools and require explicit approval for consequential actions.
 - Use request size limits, rate limiting, timeouts, and cost controls.
 - Avoid logging secrets or unnecessary sensitive prompt/document contents.
 - Provide data export and deletion, documented retention, and secure backup/restore. Export/deletion controls exist for the current notes and conversations, but retention and backup/restore still require deployment-level implementation.
-- Pin and audit dependencies, run automated tests and security checks, and review deployment configuration. CI runs regression tests and builds the container; independent security review and production smoke tests remain outstanding.
+- Audit runtime and development dependencies with `pip-audit`, scan backend code with Bandit, run automated tests, and review deployment configuration. CI runs PostgreSQL/Redis integration tests and builds the container; independent security review and production smoke tests remain outstanding.
