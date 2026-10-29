@@ -94,6 +94,7 @@ def test_password_policy_is_enforced():
 
 
 def test_chat_fails_safely_when_provider_is_not_configured():
+    create_account("chat@example.com")
     response = client.post("/api/chat", json={"message": "What is in my notes?"}, headers=ORIGIN)
     assert response.status_code == 503
     assert "MODEL_API_URL" in response.json()["detail"]
