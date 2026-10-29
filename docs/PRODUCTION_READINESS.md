@@ -22,14 +22,15 @@ This checklist is an engineering gate, not a claim that the listed controls alre
 - [ ] Semantic/vector search, document ingestion, and independent citation-quality verification
 - [x] Notes and conversation export plus password-confirmed account/notes/conversation deletion (AI memory beyond saved notes is not implemented)
 - [ ] User-controlled AI memory beyond the notes store
-- [x] API and prototype regression tests, PostgreSQL/Redis integration services, browser JavaScript syntax check, and container build in CI (check the current branch's latest run before release)
+- [x] API/prototype tests, PostgreSQL/Redis integration, browser JavaScript syntax, dependency audit, Bandit scan, container build, and container smoke test in CI (verify the latest main-branch run before release)
 - [ ] Broader browser end-to-end, load, and independent security testing
 - [x] Dependency vulnerability audit (`pip-audit`) and backend static security scan (`bandit`) in CI
 - [x] Optional Redis-backed distributed rate limiting with fail-closed behavior when configured
 - [ ] Configure managed Redis in production, abuse controls, provider quotas, and operational monitoring
 - [x] SQLite backup/restore scripts with automated integrity tests
 - [ ] Offsite backup and production restore drill
-- [ ] Deployment smoke test and independent security review
+- [x] Reusable deployment smoke-test script and container smoke test in CI
+- [ ] Run the smoke test against an actual deployed service and complete an independent security review
 
 ## Release gates
 
