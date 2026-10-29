@@ -172,6 +172,28 @@ def test_postgres_adapter_converts_placeholders_and_returns_inserted_ids():
     assert connection.params == (7, 9)
 
 
+def test_secure_cookies_reject_remote_http_origin():
+    import subprocess
+
+    environment = os.environ.copy()
+    environment["APP_ORIGIN"] = "http://assistant.example.com"
+    environment["COOKIE_SECURE"] = "true"
+    environment["DATABASE_URL"] = ""
+    environment["REDIS_URL"] = ""
+    environment["DATA_DIR"] = tempfile.mkdtemp(prefix="origin-guard-")
+    environment["DATABASE_PATH"] = str(Path(environment["DATA_DIR"]) / "assistant.sqlite3")
+    result = subprocess.run(
+        [sys.executable, "-c", "import app"],
+        cwd=Path(__file__).resolve().parents[1],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode != 0
+    assert "requires an HTTPS APP_ORIGIN" in result.stderr
+
+
 def test_unsupported_database_url_does_not_silently_fall_back_to_sqlite():
     import subprocess
 
@@ -412,4 +434,5 @@ def test_security_headers_are_present():
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["x-frame-options"] == "DENY"
     assert response.headers["cache-control"] == "no-store"
+    assert len(response.headers["x-request-id"]) == 32
     assert "script-src 'self'" in response.headers["content-security-policy"]
