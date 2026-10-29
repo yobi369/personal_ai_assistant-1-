@@ -42,7 +42,7 @@ Then run:
 uvicorn app:app --reload
 ```
 
-Open `http://127.0.0.1:8000/health`. The root endpoint describes the API. Interactive API documentation is disabled by default.
+Open `http://127.0.0.1:8000/` for the browser workspace and `http://127.0.0.1:8000/health` for the health check. Interactive API documentation is disabled by default.
 
 ## Configure an AI provider
 
