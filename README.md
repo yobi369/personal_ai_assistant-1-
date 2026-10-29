@@ -7,7 +7,7 @@ A personal knowledge assistant project evolving from a standalone HTML concept i
 ## Current capabilities
 
 - FastAPI backend with a health endpoint.
-- Email/password registration controlled by the server's `ALLOW_REGISTRATION` setting.
+- Email/password registration controlled by the server's `ALLOW_REGISTRATION` setting, plus a trusted-shell bootstrap script for private installations.
 - PBKDF2-SHA256 password hashing and opaque server-validated sessions stored as hashed tokens.
 - HttpOnly, SameSite=Strict session cookie; enable Secure cookies behind HTTPS.
 - SQLite persistence with foreign-key constraints and indexes.
@@ -63,6 +63,7 @@ The AI endpoint remains unavailable if the URL or key is missing. The applicatio
 - `GET /health` — service status and whether AI settings exist (never returns credentials).
 - `POST /api/auth/register` — create an account when registration is enabled.
 - `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`.
+- `python scripts/create_user.py` — create an initial account from a trusted shell without enabling public sign-up.
 - `GET /api/account/export` — download the signed-in user's notes and account data.
 - `DELETE /api/account` — delete the signed-in account after password confirmation.
 - `GET /api/notes`, `GET /api/notes/{id}`, `POST /api/notes`, `PUT /api/notes/{id}`, `DELETE /api/notes/{id}`.
