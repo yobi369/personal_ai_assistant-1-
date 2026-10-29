@@ -13,7 +13,7 @@ This checklist is an engineering gate, not a claim that the listed controls alre
 - [x] Initial password authentication, hashed server-side sessions, and user-scoped note queries\n- [ ] Email verification, password reset, session management UI, independent auth review
 - [x] SQLite persistence and user-scoped notes with initial isolation tests\n- [ ] Managed/durable production database, backup/restore drill, and external isolation review
 - [ ] Document ingestion, retrieval, and source citations
-- [ ] User-controlled memory, export, and deletion
+- [x] Notes export and password-confirmed account/notes deletion (memory controls beyond notes are not implemented)\n- [ ] User-controlled AI memory beyond the notes store
 - [x] Initial API and prototype regression tests plus CI workflow (latest run must be checked before treating as passing)\n- [ ] Broader integration, end-to-end, load, and security testing
 - [ ] CI checks and dependency/security scanning
 - [ ] Distributed rate limiting, abuse controls, provider quotas, and operational monitoring (current limiter is per-process only)
