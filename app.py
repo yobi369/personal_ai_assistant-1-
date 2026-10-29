@@ -35,6 +35,7 @@ if MODEL_API_URL and not MODEL_API_URL.startswith("https://") and os.getenv("ALL
 
 app = FastAPI(title=APP_NAME, version="0.1.0", docs_url=None, redoc_url=None)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 _login_attempts = {}
 
 
