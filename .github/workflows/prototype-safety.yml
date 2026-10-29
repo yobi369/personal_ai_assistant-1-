@@ -45,15 +45,6 @@ jobs:
       - name: Run API tests
         run: pytest -q
       - name: Check browser JavaScript syntax
-        run: |
-          python - <<'PY'
-          import re
-          from pathlib import Path
-          html = Path("web/index.html").read_text(encoding="utf-8")
-          scripts = re.findall(r"<script>(.*?)</script>", html, flags=re.S)
-          assert scripts, "No inline application script found"
-          Path("/tmp/personal-ai-assistant.js").write_text(chr(10).join(scripts), encoding="utf-8")
-          PY
-          node --check /tmp/personal-ai-assistant.js
+        run: node --check web/app.js
       - name: Build container image
         run: docker build --tag personal-ai-assistant:test .
