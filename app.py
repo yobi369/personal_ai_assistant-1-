@@ -307,7 +307,30 @@ def export_account(user=Depends(current_user)):
             "SELECT id,title,content,created_at,updated_at FROM notes WHERE user_id=? ORDER BY created_at",
             (user["id"],),
         ).fetchall()
-    payload = {"exported_at": utc_now(), "user": user, "notes": [dict(row) for row in rows]}
+        conversations = conn.execute(
+            "SELECT id,title,created_at,updated_at FROM conversations WHERE user_id=? ORDER BY created_at",
+            (user["id"],),
+        ).fetchall()
+        exported_conversations = []
+        for conversation in conversations:
+            messages = conn.execute(
+                "SELECT role,content,sources_json,created_at FROM messages WHERE conversation_id=? ORDER BY id",
+                (conversation["id"],),
+            ).fetchall()
+            exported_conversations.append({
+                **dict(conversation),
+                "messages": [
+                    {"role": message["role"], "content": message["content"],
+                     "sources": json.loads(message["sources_json"]), "created_at": message["created_at"]}
+                    for message in messages
+                ],
+            })
+    payload = {
+        "exported_at": utc_now(),
+        "user": user,
+        "notes": [dict(row) for row in rows],
+        "conversations": exported_conversations,
+    }
     return Response(
         content=json.dumps(payload, ensure_ascii=False, indent=2),
         media_type="application/json",
