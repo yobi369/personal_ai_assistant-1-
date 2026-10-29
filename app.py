@@ -228,8 +228,8 @@ def utc_now():
 
 def hash_password(password: str) -> str:
     salt = secrets.token_bytes(16)
-    derived = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 310_000)
-    return "pbkdf2_sha256$310000$" + salt.hex() + "$" + derived.hex()
+    derived = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 600_000)
+    return "pbkdf2_sha256$600000$" + salt.hex() + "$" + derived.hex()
 
 
 DUMMY_PASSWORD_HASH = hash_password("invalid-login-dummy-password-value")
