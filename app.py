@@ -40,6 +40,7 @@ app = FastAPI(title=APP_NAME, version="0.1.0", docs_url=None, redoc_url=None)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 _login_attempts = {}
+_rate_limit_calls = 0
 
 
 @contextmanager
@@ -99,6 +100,9 @@ def hash_password(password: str) -> str:
     return "pbkdf2_sha256$310000$" + salt.hex() + "$" + derived.hex()
 
 
+DUMMY_PASSWORD_HASH = hash_password("invalid-login-dummy-password-value")
+
+
 def verify_password(password: str, encoded: str) -> bool:
     try:
         scheme, iterations, salt_hex, expected_hex = encoded.split("$")
@@ -115,6 +119,7 @@ def token_digest(token: str) -> str:
 
 
 def rate_limited(request: FastAPIRequest, key: str, limit: int = 10, window: int = 300):
+    global _rate_limit_calls
     # Per-process safety net only. Production deployments also need gateway-level limits.
     client = request.client.host if request.client else "unknown"
     now = time.time()
@@ -124,6 +129,14 @@ def rate_limited(request: FastAPIRequest, key: str, limit: int = 10, window: int
         raise HTTPException(429, "Too many attempts. Please wait and try again.")
     recent.append(now)
     _login_attempts[bucket_key] = recent
+    _rate_limit_calls += 1
+    if _rate_limit_calls % 100 == 0:
+        for stored_key, stamps in list(_login_attempts.items()):
+            fresh = [stamp for stamp in stamps if now - stamp < window]
+            if fresh:
+                _login_attempts[stored_key] = fresh
+            else:
+                _login_attempts.pop(stored_key, None)
 
 
 def check_origin(request: FastAPIRequest):
@@ -241,7 +254,9 @@ def login(payload: Credentials, request: FastAPIRequest, response: Response):
     rate_limited(request, "login", limit=10)
     with db() as conn:
         row = conn.execute("SELECT id,email,password_hash FROM users WHERE email=?", (payload.email,)).fetchone()
-    if not row or not verify_password(payload.password, row["password_hash"]):
+    stored_hash = row["password_hash"] if row else DUMMY_PASSWORD_HASH
+    password_valid = verify_password(payload.password, stored_hash)
+    if not row or not password_valid:
         raise HTTPException(401, "Invalid email or password.")
     token = secrets.token_urlsafe(32)
     with db() as conn:
