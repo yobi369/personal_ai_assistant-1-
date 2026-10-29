@@ -4,6 +4,7 @@ Run while the application is online; SQLite's backup API handles concurrent read
 """
 import argparse
 import os
+from contextlib import closing
 import sqlite3
 import tempfile
 from datetime import datetime, timedelta, timezone
@@ -22,7 +23,7 @@ def integrity_ok(path: Path) -> bool:
     if not path.is_file():
         return False
     try:
-        with sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True, timeout=10) as connection:
+        with closing(sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True, timeout=10)) as connection:
             return connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
     except sqlite3.Error:
         return False
@@ -40,7 +41,7 @@ def backup_database(source: Path, destination: Path) -> Path:
     os.close(fd)
     temp = Path(temp_name)
     try:
-        with sqlite3.connect(f"{source.as_uri()}?mode=ro", uri=True, timeout=30) as src, sqlite3.connect(temp, timeout=30) as dst:
+        with closing(sqlite3.connect(f"{source.as_uri()}?mode=ro", uri=True, timeout=30)) as src, closing(sqlite3.connect(temp, timeout=30)) as dst:
             src.backup(dst)
             check = dst.execute("PRAGMA integrity_check").fetchone()[0]
             if check != "ok":
