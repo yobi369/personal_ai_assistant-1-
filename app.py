@@ -13,6 +13,9 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from fastapi import FastAPI, HTTPException, Request as FastAPIRequest, Response, Depends
+from dotenv import load_dotenv
+
+load_dotenv()
 from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel, Field, field_validator
 
