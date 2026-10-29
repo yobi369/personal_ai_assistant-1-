@@ -14,7 +14,7 @@ os.environ.pop("MODEL_API_KEY", None)
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fastapi.testclient import TestClient
-from app import app
+from app import app, _login_attempts
 
 client = TestClient(app)
 ORIGIN = {"origin": "http://testserver"}
