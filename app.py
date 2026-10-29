@@ -14,6 +14,7 @@ import psycopg
 from psycopg.rows import dict_row
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from urllib.parse import parse_qs, urlparse
 
 from fastapi import FastAPI, HTTPException, Request as FastAPIRequest, Response, Depends
 from dotenv import load_dotenv
@@ -40,6 +41,12 @@ MODEL_API_KEY = os.getenv("MODEL_API_KEY", "").strip()
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini").strip()
 if MODEL_API_URL and not MODEL_API_URL.startswith("https://") and os.getenv("ALLOW_INSECURE_MODEL_URL", "false").lower() != "true":
     raise RuntimeError("MODEL_API_URL must use HTTPS unless ALLOW_INSECURE_MODEL_URL=true.")
+if USE_POSTGRES:
+    parsed_database_url = urlparse(DATABASE_URL.replace("postgres://", "postgresql://", 1))
+    local_hosts = {"localhost", "127.0.0.1", "::1"}
+    ssl_mode = parse_qs(parsed_database_url.query).get("sslmode", [""])[0].lower()
+    if parsed_database_url.hostname not in local_hosts and ssl_mode not in {"require", "verify-ca", "verify-full"}:
+        raise RuntimeError("Remote PostgreSQL DATABASE_URL must specify sslmode=require or stronger.")
 
 app = FastAPI(title=APP_NAME, version="0.1.0", docs_url=None, redoc_url=None)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
