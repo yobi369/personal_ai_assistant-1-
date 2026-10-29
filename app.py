@@ -46,6 +46,8 @@ MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini").strip()
 if MODEL_API_URL:
     parsed_model_url = urlparse(MODEL_API_URL)
     local_hosts = {"localhost", "127.0.0.1", "::1"}
+    if not parsed_model_url.hostname:
+        raise RuntimeError("MODEL_API_URL must include a valid hostname.")
     allow_local_http = os.getenv("ALLOW_INSECURE_MODEL_URL", "false").lower() == "true"
     if parsed_model_url.scheme != "https" and not (
         allow_local_http and parsed_model_url.scheme == "http" and parsed_model_url.hostname in local_hosts
